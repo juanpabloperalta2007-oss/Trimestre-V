@@ -1,0 +1,147 @@
+.contenedor-usuarios{
+    width: 95%;
+    margin: 0 auto;
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(0,0,0,.15);
+}
+
+.encabezado{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:25px;
+}
+
+.encabezado h2{
+    margin:0;
+    color:#2c3e50;
+}
+
+.buscador{
+    width:280px;
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:8px;
+}
+
+.tabla-usuarios{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.tabla-usuarios th{
+    background:#0d6efd;
+    color:white;
+    padding:15px;
+    text-align:left;
+}
+
+.tabla-usuarios td{
+    padding:15px;
+    border-bottom:1px solid #ddd;
+}
+
+.tabla-usuarios tr:hover{
+    background:#f5f5f5;
+}
+
+.btn{
+    border:none;
+    padding:8px 15px;
+    margin-right:8px;
+    border-radius:6px;
+    cursor:pointer;
+    color:white;
+    font-size:14px;
+}
+
+.ver{
+    background:#0d6efd;
+}
+
+.editar{
+    background:#ffc107;
+    color:black;
+}
+
+.cursos{
+    background:#198754;
+}
+
+/*Modal */
+
+.modal-content{
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.modal-header{
+    padding: 16px 20px;
+}
+
+.modal-body th{
+    width: 130px;
+    color: #495057;
+    font-weight: 600;
+}
+
+.modal-body td{
+    color: #343a40;
+}
+
+.texto-rol{
+    color: #0d6efd;
+    font-weight: 600;
+}
+
+.texto-estado{
+    color: #198754;
+    font-weight: 600;
+}
+
+/* Botón Editar */
+
+.btn-modal-editar{
+    background: #0d6efd;
+    color: white;
+    border: none;
+    padding: 8px 22px;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: .3s;
+}
+
+.btn-modal-editar:hover{
+    background: #0b5ed7;
+}
+
+/* Botón Cerrar */
+
+.btn-modal-cerrar{
+    background: white;
+    color: #6c757d;
+    border: 1px solid #ced4da;
+    padding: 8px 22px;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: .3s;
+}
+
+.btn-modal-cerrar:hover{
+    background: #f8f9fa;
+    color: #495057;
+}
+
+/* Extiende el contenedor flex principal a todo el ancho de la pantalla */
+.d-flex {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Hace que la sección derecha ocupe el espacio restante sin apretarse */
+.contenedor-usuarios {
+  flex: 1 !important;
+  width: 100% !important;
+}

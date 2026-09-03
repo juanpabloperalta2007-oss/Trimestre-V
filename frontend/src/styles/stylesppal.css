@@ -1,0 +1,19 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #f8f9fa;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+#root {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Clases de utilidad personalizadas por si las necesitas */
+.bg-primary-gae {
+  background-color: #0d6efd !important;
+}
