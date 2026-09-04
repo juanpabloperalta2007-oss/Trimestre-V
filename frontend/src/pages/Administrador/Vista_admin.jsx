@@ -20,8 +20,9 @@ function Vista_admin() {
   const cargarUsuarios = async () => {
     try {
       setCargando(true);
-      const data = await obtenerUsuarios();
-      setUsuarios(data);
+      const res = await obtenerUsuarios();
+      const lista = Array.isArray(res) ? res : (res.usuarios || []);
+      setUsuarios(lista);
     } catch (error) {
       console.error("Error al cargar los usuarios:", error);
     } finally {
@@ -81,23 +82,39 @@ function Vista_admin() {
                     <tr key={u.id_usuario}>
                       <td>{u.login}</td>
                       <td>{u.estado}</td>
-                      <td>
-                        <button className="btn ver" onClick={() => navigate('/ver_usuario', { state: u })}>Ver</button>
-                        
-                        {/* Redirige a la pantalla de edición enviando los datos de este usuario */}
-                        <button 
-                          className="btn editar" 
-                          onClick={() => navigate('/editar_usuario', { state: u })}
-                        >
-                          Editar
-                        </button>
+                      <td style={{ width: "220px", whiteSpace: "nowrap" }}>
+                        <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
+                          <button 
+                            className="btn ver" 
+                            style={{ width: "auto", padding: "5px 12px" }}
+                            onClick={() => navigate('/ver_usuario', { state: u })}
+                          >
+                            Ver
+                          </button>
+                          
+                          <button 
+                            className="btn editar" 
+                            style={{ width: "auto", padding: "5px 12px" }}
+                            onClick={() => navigate('/editar_usuario', { state: u })}
+                          >
+                            Editar
+                          </button>
 
-                        <button 
-                          className="btn eliminar" 
-                          onClick={() => handleEliminar(u.id_usuario)}
-                        >
-                          Eliminar
-                        </button>
+                          <button 
+                            className="btn eliminar" 
+                            style={{ 
+                              width: "auto", 
+                              padding: "5px 12px", 
+                              backgroundColor: "#dc3545", 
+                              color: "#ffffff",
+                              border: "none",
+                              borderRadius: "4px"
+                            }}
+                            onClick={() => handleEliminar(u.id_usuario)}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))

@@ -3,20 +3,7 @@ import pool from "../db.js";
 
 const router = Router();
 
-//Obtener registros de todos los datos
-router.get('/', async (req, res) => { 
-    try{
-        // Importante para que la api muestre las filas de la tabla en formato json
-        const [rows] = await pool.query(
-            `SELECT id_acudiente, id_estudiante, parentesco
-            FROM acudientes_estudiantes`);
-        res.json(rows);
-        //
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
+// Obtener todas las relaciones con nombres completos de acudiente y estudiante
 router.get("/", async (req, res) => {
     try {
         const [rows] = await pool.query(`
@@ -35,6 +22,7 @@ router.get("/", async (req, res) => {
     }
 });
 
+// Crear relación directamente por IDs
 router.post("/", async (req, res) => {
     try {
         const { id_acudiente, id_estudiante, parentesco } = req.body;
@@ -50,6 +38,74 @@ router.post("/", async (req, res) => {
     }
 });
 
+// NUEVO: Vincular estudiante por su Número de Documento usando el id_usuario del acudiente
+router.post("/vincular", async (req, res) => {
+    try {
+        const { id_usuario, documento_estudiante, parentesco } = req.body;
+
+        // 1. Buscar id_acudiente del usuario logueado
+        const [acudiente] = await pool.query(
+            `SELECT a.id_acudiente 
+             FROM acudientes a
+             INNER JOIN personas p ON a.id_persona = p.id_persona
+             WHERE p.id_usuario = ?`,
+            [id_usuario]
+        );
+
+        if (acudiente.length === 0) {
+            return res.status(404).json({ error: "Perfil de acudiente no encontrado." });
+        }
+
+        // 2. Buscar id_estudiante por número de documento
+        const [estudiante] = await pool.query(
+            `SELECT e.id_estudiante, p.primer_nombre, p.primer_apellido 
+             FROM estudiantes e
+             INNER JOIN personas p ON e.id_persona = p.id_persona
+             WHERE p.numero_documento = ?`,
+            [documento_estudiante]
+        );
+
+        if (estudiante.length === 0) {
+            return res.status(404).json({ error: "No se encontró ningún estudiante con ese número de documento." });
+        }
+
+        // 3. Crear la vinculación
+        await pool.query(
+            `INSERT INTO acudientes_estudiantes (id_acudiente, id_estudiante, parentesco) 
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE parentesco = VALUES(parentesco)`,
+            [acudiente[0].id_acudiente, estudiante[0].id_estudiante, parentesco || 'Acudiente']
+        );
+
+        res.json({ 
+            mensaje: "Estudiante vinculado exitosamente", 
+            estudiante: `${estudiante[0].primer_nombre} ${estudiante[0].primer_apellido}`
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// NUEVO: Obtener los estudiantes vinculados a un acudiente específico
+router.get("/mis-estudiantes/:id_usuario", async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            `SELECT e.id_estudiante, p.primer_nombre, p.primer_apellido, p.numero_documento, ae.parentesco
+             FROM acudientes_estudiantes ae
+             INNER JOIN acudientes a ON ae.id_acudiente = a.id_acudiente
+             INNER JOIN personas p_acu ON a.id_persona = p_acu.id_persona
+             INNER JOIN estudiantes e ON ae.id_estudiante = e.id_estudiante
+             INNER JOIN personas p ON e.id_persona = p.id_persona
+             WHERE p_acu.id_usuario = ?`,
+            [req.params.id_usuario]
+        );
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Eliminar relación existente
 router.delete("/:id_acudiente/:id_estudiante", async (req, res) => {
     try {
         const [result] = await pool.query(

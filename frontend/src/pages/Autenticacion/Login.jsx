@@ -1,182 +1,120 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import "bootstrap/dist/css/bootstrap.min.css";
-import "../../styles/Login.css";
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import axios from "axios";
 
 function Login() {
+  const navigate = useNavigate();
+  const [correo, setCorreo] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [cargando, setCargando] = useState(false);
 
-    const [correo, setCorreo] = useState("");
-    const [contrasena, setContrasena] = useState("");
-    const [mensaje, setMensaje] = useState("");
+  const manejarSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setCargando(true);
 
-    const navigate = useNavigate();
+    try {
+      const respuesta = await axios.post("http://localhost:5000/api/usuarios/login", {
+        correo,
+        password
+      });
 
-    const iniciarSesion = (e) => {
+      const { usuario } = respuesta.data;
 
-        e.preventDefault();
+      // Guardar los datos del usuario en la sesión local del navegador
+      localStorage.setItem("usuario", JSON.stringify(usuario));
 
-        if (correo.trim() === "" || contrasena.trim() === "") {
+      // Redirección condicional según id_cargo
+      switch (parseInt(usuario.id_cargo)) {
+        case 1:
+          navigate("/admin"); // Módulo Administrador
+          break;
+        case 2:
+          navigate("/coordinador"); // Módulo Coordinador
+          break;
+        case 3:
+          navigate("/docente"); // Módulo Docente
+          break;
+        case 4:
+          navigate("/acudiente"); // Módulo Acudiente
+          break;
+        default:
+          setError("El rol asignado no cuenta con una vista configurada.");
+          break;
+      }
 
-            setMensaje("Debe completar todos los campos.");
-            return;
+    } catch (err) {
+      if (err.response && err.response.data && err.response.data.error) {
+        setError(err.response.data.error);
+      } else {
+        setError("No se pudo conectar con el servidor. Verifique la conexión.");
+      }
+    } finally {
+      setCargando(false);
+    }
+  };
 
-        }
-
-        let rol = "";
-
-        // Detectar el rol según el correo
-        if (correo.toLowerCase().includes("admin")) {
-
-            rol = "admin";
-
-        } else if (correo.toLowerCase().includes("docente")) {
-
-            rol = "docente";
-
-        } else if (correo.toLowerCase().includes("coordinador")) {
-
-            rol = "coordinador";
-
-        } else if (correo.toLowerCase().includes("acudiente")) {
-
-            rol = "acudiente";
-
-        } else {
-
-            setMensaje("El correo no pertenece a ningún usuario autorizado.");
-            return;
-
-        }
-
-        // Guardar datos del usuario
-        localStorage.setItem("correo", correo);
-        localStorage.setItem("rol", rol);
-
-        setMensaje("Inicio de sesión exitoso.");
-
-        setTimeout(() => {
-
-            switch (rol) {
-
-                case "admin":
-                    navigate("/vista_admin");
-                    break;
-
-                case "docente":
-                    navigate("/inicio");
-                    break;
-
-                case "coordinador":
-                    navigate("/coordinador");
-                    break;
-
-                case "acudiente":
-                    navigate("/acudiente");
-                    break;
-
-                default:
-                    navigate("/");
-                    break;
-            }
-
-        }, 1000);
-
-    };
-
-    return (
-
-        <div className="contenedor-form">
-
-            <h1>Liceo Antonio De Toledo</h1>
-
-            <h2>Inicio de sesión</h2>
-
-            <hr />
-
-            <form onSubmit={iniciarSesion}>
-
-                <div className="mb-3">
-
-                    <label htmlFor="correo" className="form-label">
-                        Correo electrónico
-                    </label>
-
-                    <input
-                        type="email"
-                        className="form-control"
-                        id="correo"
-                        placeholder="ejemplo@gmail.com"
-                        value={correo}
-                        onChange={(e) => setCorreo(e.target.value)}
-                        required
-                    />
-
-                </div>
-
-                <div className="mb-3">
-
-                    <label htmlFor="contrasena" className="form-label">
-                        Contraseña
-                    </label>
-
-                    <input
-                        type="password"
-                        className="form-control"
-                        id="contrasena"
-                        placeholder="Ingrese su contraseña"
-                        value={contrasena}
-                        onChange={(e) => setContrasena(e.target.value)}
-                        required
-                    />
-
-                    <div className="form-text">
-                        Entre 8 y 20 caracteres.
-                    </div>
-
-                </div>
-
-                <button className="btn-login" type="submit">
-                    Iniciar Sesión
-                </button>
-
-            </form>
-
-            {mensaje && (
-
-                <div className="alert alert-info mt-3">
-                    {mensaje}
-                </div>
-
-            )}
-
-            <p className="text-center mt-4">
-
-                <Link to="/enviar_pin" className="link-recuperar">
-                    ¿Olvidaste tu contraseña?
-                </Link>
-
-            </p>
-
-            <div className="mt-3">
-
-                <Link
-                    to="/registro"
-                    className="btn btn-outline-primary w-100 py-2 fw-bold shadow-sm text-center d-block text-decoration-none"
-                    style={{
-                        color: "#007bff",
-                        borderColor: "#007bff",
-                        background: "transparent"
-                    }}
-                >
-                    Registrarse
-                </Link>
-
-            </div>
-
+  return (
+    <div className="container d-flex justify-content-center align-items-center vh-100">
+      <div className="card p-4 shadow-sm" style={{ maxWidth: "400px", width: "100%" }}>
+        <div className="text-center mb-3">
+          <h3 className="fw-bold">Liceo Antonio De Toledo</h3>
+          <p className="text-muted small">INICIO DE SESIÓN</p>
         </div>
 
-    );
+        <form onSubmit={manejarSubmit}>
+          <div className="mb-3">
+            <label className="form-label">Correo electrónico</label>
+            <input
+              type="email"
+              className="form-control"
+              value={correo}
+              onChange={(e) => setCorreo(e.target.value)}
+              placeholder="ejemplo@gmail.com"
+              required
+            />
+          </div>
 
+          <div className="mb-3">
+            <label className="form-label">Contraseña</label>
+            <input
+              type="password"
+              className="form-control"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+            />
+            <small className="form-text text-muted">Entre 8 y 20 caracteres.</small>
+          </div>
+
+          <button
+            type="submit"
+            className="btn btn-success w-100 fw-bold my-2"
+            disabled={cargando}
+          >
+            {cargando ? "Cargando..." : "Iniciar Sesión"}
+          </button>
+
+          {error && (
+            <div className="alert alert-info mt-3 p-2 text-center" role="alert">
+              {error}
+            </div>
+          )}
+        </form>
+
+        <div className="text-center mt-3">
+          <Link to="/recuperar" className="text-decoration-none small d-block mb-2">
+            ¿Olvidaste tu contraseña?
+          </Link>
+          <Link to="/registro" className="btn btn-outline-primary w-100 fw-bold">
+            Registrarse
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default Login;
