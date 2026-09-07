@@ -1,147 +1,172 @@
-import express from "express";
-import pool from "../db.js"; // Se cambia require por import
+import { Router } from "express";
+import db from "../db.js";
+import bcrypt from "bcryptjs";
 
-const router = express.Router();
+const router = Router();
 
 // ==========================================
-// 1. RUTA DE REGISTRO PÚBLICO
+// 1. OBTENER TODOS LOS USUARIOS (Vista Admin)
 // ==========================================
-router.post("/registro-publico", async (req, res) => {
-  const connection = await pool.getConnection();
+router.get("/", async (req, res) => {
   try {
-    await connection.beginTransaction();
-
-    const {
-      primer_nombre,
-      segundo_nombre,
-      primer_apellido,
-      segundo_apellido,
-      tipo_documento,
-      numero_documento,
-      telefono,
-      direccion,
-      correo,
-      password,
-      id_cargo // 3: Docente, 4: Acudiente
-    } = req.body;
-
-    // Validación básica de campos requeridos
-    if (!primer_nombre || !primer_apellido || !tipo_documento || !numero_documento || !correo || !password || !id_cargo) {
-      return res.status(400).json({ error: "Por favor, complete todos los campos obligatorios." });
-    }
-
-    // Insertar en la tabla usuarios
-    const [resUsuario] = await connection.query(
-      `INSERT INTO usuarios (login, password_hash, estado) VALUES (?, ?, 'Activo')`,
-      [correo, password]
-    );
-    const id_usuario = resUsuario.insertId;
-
-    // Insertar en la tabla personas
-    const [resPersona] = await connection.query(
-      `INSERT INTO personas 
-        (primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, tipo_documento, numero_documento, telefono, direccion, id_cargo, id_usuario) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        primer_nombre,
-        segundo_nombre || null,
-        primer_apellido,
-        segundo_apellido || null,
-        tipo_documento,
-        numero_documento,
-        telefono,
-        direccion,
-        id_cargo,
-        id_usuario
-      ]
-    );
-    const id_persona = resPersona.insertId;
-
-    // Insertar en la tabla específica del rol
-    if (parseInt(id_cargo) === 4) {
-      await connection.query(
-        `INSERT INTO acudientes (id_persona) VALUES (?)`,
-        [id_persona]
-      );
-    } else if (parseInt(id_cargo) === 3) {
-      await connection.query(
-        `INSERT INTO docentes (id_persona) VALUES (?)`,
-        [id_persona]
-      );
-    }
-
-    await connection.commit();
-    res.status(201).json({ mensaje: "Usuario registrado con éxito." });
-
+    const sql = `
+      SELECT 
+        u.id_usuario,
+        u.login,
+        u.login AS correo,
+        u.estado,
+        c.nombre_cargo AS cargo,
+        p.primer_nombre,
+        p.segundo_nombre,
+        p.primer_apellido,
+        p.segundo_apellido,
+        p.tipo_documento,
+        p.numero_documento,
+        p.telefono
+      FROM usuarios u
+      LEFT JOIN personas p ON u.id_usuario = p.id_usuario
+      LEFT JOIN cargos c ON p.id_cargo = c.id_cargo
+      ORDER BY u.id_usuario DESC
+    `;
+    const [filas] = await db.query(sql);
+    res.json(filas);
   } catch (error) {
-    await connection.rollback();
-    console.error("Error en registro público:", error);
-    res.status(500).json({ error: "Error al registrar el usuario en la base de datos." });
-  } finally {
-    connection.release();
+    console.error("Error al consultar usuarios:", error);
+    res.status(500).json({ error: "Error al consultar la base de datos." });
   }
 });
 
 // ==========================================
-// 2. RUTA DE INICIO DE SESIÓN (LOGIN)
+// 2. OBTENER USUARIO POR ID
 // ==========================================
-router.post("/login", async (req, res) => {
+router.get("/:id", async (req, res) => {
+  const { id } = req.params;
   try {
-    const { correo, password } = req.body;
-
-    if (!correo || !password) {
-      return res.status(400).json({ error: "Por favor, ingrese correo y contraseña." });
-    }
-
-    // Consulta con INNER JOIN a personas y cargos
-    const [rows] = await pool.query(
-      `SELECT 
-        u.id_usuario, 
-        u.login, 
-        u.password_hash, 
+    const sql = `
+      SELECT 
+        u.id_usuario,
+        u.login,
+        u.login AS correo,
         u.estado,
-        p.id_persona,
         p.primer_nombre,
+        p.segundo_nombre,
         p.primer_apellido,
-        p.id_cargo,
-        c.nombre_cargo
-       FROM usuarios u
-       INNER JOIN personas p ON u.id_usuario = p.id_usuario
-       INNER JOIN cargos c ON p.id_cargo = c.id_cargo
-       WHERE u.login = ?`,
-      [correo]
-    );
+        p.segundo_apellido,
+        p.tipo_documento,
+        p.numero_documento,
+        p.telefono,
+        p.id_cargo
+      FROM usuarios u
+      LEFT JOIN personas p ON u.id_usuario = p.id_usuario
+      WHERE u.id_usuario = ?
+    `;
+    const [filas] = await db.query(sql, [id]);
 
-    if (rows.length === 0) {
-      return res.status(404).json({ error: "El correo no pertenece a ningún usuario autorizado." });
+    if (filas.length === 0) {
+      return res.status(404).json({ error: "Usuario no encontrado." });
     }
 
-    const usuario = rows[0];
+    res.json(filas[0]);
+  } catch (error) {
+    console.error("Error al obtener usuario:", error);
+    res.status(500).json({ error: "Error interno del servidor." });
+  }
+});
 
-    if (usuario.estado !== 'Activo') {
-      return res.status(403).json({ error: "El usuario no se encuentra activo." });
+// ==========================================
+// 3. REGISTRO ADMINISTRATIVO DE USUARIO
+// ==========================================
+router.post("/registro-admin", async (req, res) => {
+  const {
+    primer_nombre,
+    segundo_nombre,
+    primer_apellido,
+    segundo_apellido,
+    tipo_documento,
+    numero_documento,
+    telefono,
+    correo,
+    password,
+    id_cargo
+  } = req.body;
+
+  if (!primer_nombre || !primer_apellido || !tipo_documento || !numero_documento || !correo || !password || !id_cargo) {
+    return res.status(400).json({ error: "Por favor complete todos los campos obligatorios (*)." });
+  }
+
+  const conexion = await db.getConnection();
+
+  try {
+    await conexion.beginTransaction();
+
+    // Validar correo duplicado
+    const [existeUsuario] = await conexion.query("SELECT id_usuario FROM usuarios WHERE login = ?", [correo]);
+    if (existeUsuario.length > 0) {
+      await conexion.rollback();
+      return res.status(400).json({ error: "El correo/login ingresado ya se encuentra registrado." });
     }
 
-    if (usuario.password_hash !== password) {
-      return res.status(401).json({ error: "Contraseña incorrecta." });
-    }
+    // Encriptar contraseña
+    const passwordHash = await bcrypt.hash(password, 10);
 
-    // Respuesta con id_cargo para la redirección en el frontend
-    return res.status(200).json({
-      mensaje: "Inicio de sesión exitoso",
-      usuario: {
-        id_usuario: usuario.id_usuario,
-        id_persona: usuario.id_persona,
-        nombre: `${usuario.primer_nombre} ${usuario.primer_apellido}`,
-        correo: usuario.login,
-        id_cargo: usuario.id_cargo,
-        rol: usuario.nombre_cargo
-      }
-    });
+    // Insertar en tabla usuarios
+    const sqlUsuario = `INSERT INTO usuarios (login, password_hash, estado) VALUES (?, ?, 'Activo')`;
+    const [resultadoUsuario] = await conexion.query(sqlUsuario, [correo, passwordHash]);
+    const id_usuario_creado = resultadoUsuario.insertId;
+
+    // Insertar en tabla personas
+    const sqlPersona = `
+      INSERT INTO personas 
+        (primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, tipo_documento, numero_documento, telefono, id_cargo, id_usuario) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    await conexion.query(sqlPersona, [
+      primer_nombre,
+      segundo_nombre || null,
+      primer_apellido,
+      segundo_apellido || null,
+      tipo_documento,
+      numero_documento,
+      telefono || null,
+      id_cargo,
+      id_usuario_creado
+    ]);
+
+    await conexion.commit();
+    res.status(201).json({ mensaje: "Usuario registrado correctamente.", id_usuario: id_usuario_creado });
 
   } catch (error) {
-    console.error("Error en login:", error);
-    return res.status(500).json({ error: "Error interno del servidor al iniciar sesión." });
+    await conexion.rollback();
+    console.error("=== ERROR BD AL REGISTRAR USUARIO ===", error);
+    res.status(500).json({ 
+      error: `Error en la BD: ${error.sqlMessage || error.message || "No se pudo registrar el usuario."}` 
+    });
+  } finally {
+    conexion.release();
+  }
+});
+
+// ==========================================
+// 4. ELIMINAR USUARIO
+// ==========================================
+router.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+  const conexion = await db.getConnection();
+
+  try {
+    await conexion.beginTransaction();
+    await conexion.query("DELETE FROM personas WHERE id_usuario = ?", [id]);
+    await conexion.query("DELETE FROM usuarios WHERE id_usuario = ?", [id]);
+    await conexion.commit();
+
+    res.json({ mensaje: "Usuario eliminado con éxito." });
+  } catch (error) {
+    await conexion.rollback();
+    console.error("Error al eliminar usuario:", error);
+    res.status(500).json({ error: "Error al eliminar el usuario en la base de datos." });
+  } finally {
+    conexion.release();
   }
 });
 

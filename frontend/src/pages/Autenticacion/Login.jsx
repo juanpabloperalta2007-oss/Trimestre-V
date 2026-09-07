@@ -22,22 +22,22 @@ function Login() {
 
       const { usuario } = respuesta.data;
 
-      // Guardar los datos del usuario en la sesión local del navegador
+      // Guardar sesión en localStorage
       localStorage.setItem("usuario", JSON.stringify(usuario));
 
-      // Redirección condicional según id_cargo
+      // Redirección condicional según el id_cargo
       switch (parseInt(usuario.id_cargo)) {
         case 1:
-          navigate("/admin"); // Módulo Administrador
+          navigate("/vista_admin"); // O /admin según la ruta de App.jsx
           break;
         case 2:
-          navigate("/coordinador"); // Módulo Coordinador
+          navigate("/coordinador");
           break;
         case 3:
-          navigate("/docente"); // Módulo Docente
+          navigate("/inicio"); // O /docente según la ruta de App.jsx
           break;
         case 4:
-          navigate("/acudiente"); // Módulo Acudiente
+          navigate("/acudiente");
           break;
         default:
           setError("El rol asignado no cuenta con una vista configurada.");
@@ -48,7 +48,7 @@ function Login() {
       if (err.response && err.response.data && err.response.data.error) {
         setError(err.response.data.error);
       } else {
-        setError("No se pudo conectar con el servidor. Verifique la conexión.");
+        setError("No se pudo conectar con el servidor.");
       }
     } finally {
       setCargando(false);
@@ -57,15 +57,15 @@ function Login() {
 
   return (
     <div className="container d-flex justify-content-center align-items-center vh-100">
-      <div className="card p-4 shadow-sm" style={{ maxWidth: "400px", width: "100%" }}>
+      <div className="card p-4 shadow-sm" style={{ maxWidth: "400px", width: "100%", backgroundColor: "#ffffff" }}>
         <div className="text-center mb-3">
-          <h3 className="fw-bold">Liceo Antonio De Toledo</h3>
+          <h3 className="fw-bold" style={{ color: "#000000" }}>Liceo Antonio De Toledo</h3>
           <p className="text-muted small">INICIO DE SESIÓN</p>
         </div>
 
         <form onSubmit={manejarSubmit}>
-          <div className="mb-3">
-            <label className="form-label">Correo electrónico</label>
+          <div className="mb-3 text-start">
+            <label className="form-label fw-bold small" style={{ color: "#333333" }}>Correo electrónico</label>
             <input
               type="email"
               className="form-control"
@@ -76,8 +76,8 @@ function Login() {
             />
           </div>
 
-          <div className="mb-3">
-            <label className="form-label">Contraseña</label>
+          <div className="mb-3 text-start">
+            <label className="form-label fw-bold small" style={{ color: "#333333" }}>Contraseña</label>
             <input
               type="password"
               className="form-control"
@@ -93,22 +93,39 @@ function Login() {
             type="submit"
             className="btn btn-success w-100 fw-bold my-2"
             disabled={cargando}
+            style={{ backgroundColor: "#198754", borderColor: "#198754", color: "#ffffff" }}
           >
             {cargando ? "Cargando..." : "Iniciar Sesión"}
           </button>
 
           {error && (
-            <div className="alert alert-info mt-3 p-2 text-center" role="alert">
+            <div className="alert alert-info mt-3 p-2 text-center small" role="alert">
               {error}
             </div>
           )}
         </form>
 
         <div className="text-center mt-3">
-          <Link to="/recuperar" className="text-decoration-none small d-block mb-2">
+          <Link 
+            to="/enviar_pin" 
+            className="small d-block mb-3"
+            style={{ color: "#0d6efd", textDecoration: "none" }}
+          >
             ¿Olvidaste tu contraseña?
           </Link>
-          <Link to="/registro" className="btn btn-outline-primary w-100 fw-bold">
+          
+          {/* BOTÓN REGISTRARSE VISIBLE Y CON ESTILOS FORZADOS */}
+          <Link 
+            to="/registro" 
+            className="btn w-100 fw-bold d-block text-center"
+            style={{ 
+              backgroundColor: "#ffffff", 
+              color: "#0d6efd", 
+              border: "2px solid #0d6efd",
+              textDecoration: "none",
+              padding: "8px 0"
+            }}
+          >
             Registrarse
           </Link>
         </div>
