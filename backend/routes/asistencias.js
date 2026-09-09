@@ -3,22 +3,7 @@ import pool from "../db.js";
 
 const router = Router();
 
-//Obtener registros de todos los datos
-router.get('/', async (req, res) => { 
-    try{
-        // Importante para que la api muestre las filas de la tabla en formato json
-        const [rows] = await pool.query(
-            `SELECT id_asistencia, fecha, estado, 
-            observaciones, id_estudiante, id_asignatura_curso
-            FROM asistencias`);
-        res.json(rows);
-        //
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Obtener asistencias
+// 1. Obtener asistencias paginadas y filtradas por búsqueda
 router.get("/", async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -72,7 +57,7 @@ router.get("/", async (req, res) => {
     }
 });
 
-// Registrar asistencia
+// 2. Registrar asistencia manual
 router.post("/", async (req, res) => {
     try {
         const { fecha, estado, observaciones, id_estudiante, id_asignatura_curso } = req.body;
@@ -98,7 +83,7 @@ router.post("/", async (req, res) => {
     }
 });
 
-// Actualizar asistencia
+// 3. Actualizar asistencia por ID
 router.put("/:id", async (req, res) => {
     try {
         const { fecha, estado, observaciones } = req.body;
@@ -118,7 +103,7 @@ router.put("/:id", async (req, res) => {
     }
 });
 
-// Eliminar asistencia
+// 4. Eliminar asistencia por ID
 router.delete("/:id", async (req, res) => {
     try {
         const [result] = await pool.query(
@@ -131,6 +116,73 @@ router.delete("/:id", async (req, res) => {
         }
 
         res.json({ mensaje: "Asistencia eliminada exitosamente" });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 5. Obtener estadísticas mensuales de asistencia para un estudiante
+router.get("/estadisticas/:id_estudiante", async (req, res) => {
+    const { id_estudiante } = req.params;
+    const { mes } = req.query; // Mes numérico (1 - 12)
+
+    try {
+        const [filas] = await pool.query(
+            `SELECT 
+                SUM(CASE WHEN LOWER(estado) LIKE '%asistencia%' OR LOWER(estado) = 'presente' THEN 1 ELSE 0 END) AS asistencias,
+                SUM(CASE WHEN LOWER(estado) LIKE '%sin justificar%' THEN 1 ELSE 0 END) AS fallas_sin_justificar,
+                SUM(CASE WHEN LOWER(estado) LIKE '%justificada%' THEN 1 ELSE 0 END) AS fallas_justificadas,
+                SUM(CASE WHEN LOWER(estado) LIKE '%retardo%' OR LOWER(estado) LIKE '%tarde%' THEN 1 ELSE 0 END) AS retardos
+             FROM asistencias
+             WHERE id_estudiante = ? 
+               AND (? IS NULL OR MONTH(fecha) = ?)`,
+            [id_estudiante, mes || null, mes || null]
+        );
+
+        res.json({
+            asistencias: parseInt(filas[0].asistencias) || 0,
+            fallas_sin_justificar: parseInt(filas[0].fallas_sin_justificar) || 0,
+            fallas_justificadas: parseInt(filas[0].fallas_justificadas) || 0,
+            retardos: parseInt(filas[0].retardos) || 0
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 6. Radicar excusa (Crea o actualiza el registro a 'Falla Justificada')
+router.post("/excusa", async (req, res) => {
+    try {
+        const { id_estudiante, motivo, fecha_inasistencia, descripcion } = req.body;
+
+        if (!id_estudiante || !fecha_inasistencia || !descripcion) {
+            return res.status(400).json({ error: "Faltan datos requeridos para radicar la excusa." });
+        }
+
+        const detalleObservacion = `[EXCUSA - ${motivo || 'General'}]: ${descripcion}`;
+
+        // Verificar si existe una asistencia en esa fecha para actualizarla
+        const [existente] = await pool.query(
+            "SELECT id_asistencia FROM asistencias WHERE id_estudiante = ? AND DATE(fecha) = DATE(?)",
+            [id_estudiante, fecha_inasistencia]
+        );
+
+        if (existente.length > 0) {
+            await pool.query(
+                `UPDATE asistencias 
+                 SET estado = 'Falla Justificada', observaciones = ? 
+                 WHERE id_asistencia = ?`,
+                [detalleObservacion, existente[0].id_asistencia]
+            );
+        } else {
+            await pool.query(
+                `INSERT INTO asistencias (fecha, estado, observaciones, id_estudiante, id_asignatura_curso)
+                 VALUES (?, 'Falla Justificada', ?, ?, 1)`,
+                [fecha_inasistencia, detalleObservacion, id_estudiante]
+            );
+        }
+
+        res.status(201).json({ mensaje: "Excusa radicada exitosamente" });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -86,16 +86,26 @@ router.post("/vincular", async (req, res) => {
     }
 });
 
-// NUEVO: Obtener los estudiantes vinculados a un acudiente específico
+// NUEVO: Obtener los estudiantes vinculados a un acudiente específico (INCLUYE CURSO Y NOMBRES COMPLETOS)
 router.get("/mis-estudiantes/:id_usuario", async (req, res) => {
     try {
         const [rows] = await pool.query(
-            `SELECT e.id_estudiante, p.primer_nombre, p.primer_apellido, p.numero_documento, ae.parentesco
+            `SELECT 
+                e.id_estudiante, 
+                p.primer_nombre, 
+                p.segundo_nombre,
+                p.primer_apellido, 
+                p.segundo_apellido,
+                p.numero_documento, 
+                ae.parentesco,
+                c.nombre_curso
              FROM acudientes_estudiantes ae
              INNER JOIN acudientes a ON ae.id_acudiente = a.id_acudiente
              INNER JOIN personas p_acu ON a.id_persona = p_acu.id_persona
              INNER JOIN estudiantes e ON ae.id_estudiante = e.id_estudiante
              INNER JOIN personas p ON e.id_persona = p.id_persona
+             LEFT JOIN estudiantes_cursos ec ON e.id_estudiante = ec.id_estudiante
+             LEFT JOIN cursos c ON ec.id_curso = c.id_curso
              WHERE p_acu.id_usuario = ?`,
             [req.params.id_usuario]
         );
