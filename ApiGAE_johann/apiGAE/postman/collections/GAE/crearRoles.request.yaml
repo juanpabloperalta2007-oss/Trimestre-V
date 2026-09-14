@@ -1,0 +1,14 @@
+$kind: http-request
+name: crearRoles
+url: http://127.0.0.1:8000/api/cargos
+method: POST
+body:
+  type: json
+  content: "{\r
+
+    \    \"id_cargo\": \"5\",\r
+
+    \    \"nombre_cargo\": \"prueba\"\r
+
+    }"
+order: 1844025008345481

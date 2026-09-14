@@ -1,0 +1,8 @@
+$kind: http-request
+name: consultarCodigo
+url: http://127.0.0.1:8000/api/cargos/5
+method: GET
+body:
+  type: json
+  content: ""
+order: 1434835240698928

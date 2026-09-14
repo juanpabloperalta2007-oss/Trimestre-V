@@ -1,0 +1,8 @@
+$kind: http-request
+name: eliminarCargo
+url: http://127.0.0.1:8000/api/cargos/3
+method: DELETE
+body:
+  type: json
+  content: ""
+order: 3929223947483039

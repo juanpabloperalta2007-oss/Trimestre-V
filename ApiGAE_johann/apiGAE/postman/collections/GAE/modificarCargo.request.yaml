@@ -1,0 +1,14 @@
+$kind: http-request
+name: modificarCargo
+url: http://127.0.0.1:8000/api/cargos/3
+method: PUT
+body:
+  type: json
+  content: "{\r
+
+    \    \"id_cargo\": \"3\",\r
+
+    \    \"nombre_cargo\": \"Cargo Modificado\"\r
+
+    }\r\n"
+order: 3754458390264032
