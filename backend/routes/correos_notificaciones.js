@@ -3,16 +3,17 @@ import pool from "../db.js";
 
 const router = Router();
 
-<<<<<<< Updated upstream
+
 // ==========================================
 // 1. OBTENER TODOS LOS REGISTROS (Paginado)
 // ==========================================
-=======
+
+
 // =====================================================
 // OBTENER NOTIFICACIONES
 // =====================================================
 
->>>>>>> Stashed changes
+ 
 router.get("/", async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -42,9 +43,10 @@ router.get("/", async (req, res) => {
       error: error.message,
     });
   }
+
 });
 
-<<<<<<< Updated upstream
+
 // ==========================================
 // 2. OBTENER NOTIFICACIONES POR ACUDIENTE
 // ==========================================
@@ -81,12 +83,15 @@ router.get("/acudiente/:id_acudiente", async (req, res) => {
 // ==========================================
 // 3. REGISTRAR NUEVO CORREO / NOTIFICACIÓN
 // ==========================================
-=======
+
+
+
+
 // =====================================================
 // REGISTRAR NOTIFICACIÓN
 // =====================================================
 
->>>>>>> Stashed changes
+
 router.post("/", async (req, res) => {
   try {
 
@@ -155,16 +160,16 @@ router.post("/", async (req, res) => {
   }
 });
 
-<<<<<<< Updated upstream
+
 // ==========================================
 // 4. ELIMINAR CORREO / NOTIFICACIÓN
 // ==========================================
-=======
+
 // =====================================================
 // ELIMINAR NOTIFICACIÓN
 // =====================================================
 
->>>>>>> Stashed changes
+
 router.delete("/:id", async (req, res) => {
   try {
 
