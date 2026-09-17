@@ -3,32 +3,48 @@ import pool from "../db.js";
 
 const router = Router();
 
+<<<<<<< Updated upstream
 // ==========================================
 // 1. OBTENER TODOS LOS REGISTROS (Paginado)
 // ==========================================
-router.get("/", async (req, res) => {
-    try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const offset = (page - 1) * limit;
+=======
+// =====================================================
+// OBTENER NOTIFICACIONES
+// =====================================================
 
-        const [rows] = await pool.query("SELECT * FROM correos_notificaciones ORDER BY fecha_envio DESC LIMIT ? OFFSET ?", [limit, offset]);
-        const [countResult] = await pool.query("SELECT COUNT(*) AS total FROM correos_notificaciones");
-        const total = countResult[0].total;
-        res.json({
-            correos: rows,
-            pagination: {
-                currentPage: page,
-                totalPages: Math.ceil(total / limit),
-                totalItems: total,
-                limit
-            }
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+>>>>>>> Stashed changes
+router.get("/", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT
+        id_correo,
+        asunto,
+        mensaje,
+        fecha_envio,
+        tipo_notificacion,
+        estado_envio,
+        id_docente,
+        id_acudiente,
+        id_estudiante
+      FROM correos_notificaciones
+      ORDER BY fecha_envio DESC
+    `);
+
+    res.json(rows);
+
+  } catch (error) {
+    console.error(
+      "Error obteniendo notificaciones:",
+      error
+    );
+
+    res.status(500).json({
+      error: error.message,
+    });
+  }
 });
 
+<<<<<<< Updated upstream
 // ==========================================
 // 2. OBTENER NOTIFICACIONES POR ACUDIENTE
 // ==========================================
@@ -65,36 +81,122 @@ router.get("/acudiente/:id_acudiente", async (req, res) => {
 // ==========================================
 // 3. REGISTRAR NUEVO CORREO / NOTIFICACIÓN
 // ==========================================
+=======
+// =====================================================
+// REGISTRAR NOTIFICACIÓN
+// =====================================================
+
+>>>>>>> Stashed changes
 router.post("/", async (req, res) => {
-    try {
-        const { asunto, mensaje, tipo_notificacion, estado_envio, id_docente, id_acudiente, id_estudiante } = req.body;
-        if (!asunto || !mensaje || !id_docente || !id_acudiente) {
-            return res.status(400).json({ error: "Asunto, mensaje, docente y acudiente son obligatorios" });
-        }
+  try {
 
-        const [result] = await pool.query(
-            `INSERT INTO correos_notificaciones (asunto, mensaje, tipo_notificacion, estado_envio, id_docente, id_acudiente, id_estudiante)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [asunto, mensaje, tipo_notificacion || "Inasistencia", estado_envio || "Enviado", id_docente, id_acudiente, id_estudiante || null]
-        );
+    const {
+      asunto,
+      mensaje,
+      tipo_notificacion,
+      estado_envio,
+      id_docente,
+      id_acudiente,
+      id_estudiante,
+    } = req.body;
 
-        res.status(201).json({ mensaje: "Notificación registrada", id_correo: result.insertId });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    if (
+      !asunto ||
+      !mensaje ||
+      !id_docente ||
+      !id_acudiente
+    ) {
+      return res.status(400).json({
+        error:
+          "Asunto, mensaje, docente y acudiente son obligatorios",
+      });
     }
+
+    const [result] = await pool.query(
+      `
+      INSERT INTO correos_notificaciones
+      (
+        asunto,
+        mensaje,
+        tipo_notificacion,
+        estado_envio,
+        id_docente,
+        id_acudiente,
+        id_estudiante
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        asunto,
+        mensaje,
+        tipo_notificacion || "Inasistencia",
+        estado_envio || "Enviado",
+        id_docente,
+        id_acudiente,
+        id_estudiante || null,
+      ]
+    );
+
+    res.status(201).json({
+      mensaje: "Notificación registrada correctamente",
+      id_correo: result.insertId,
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Error registrando notificación:",
+      error
+    );
+
+    res.status(500).json({
+      error: error.message,
+    });
+  }
 });
 
+<<<<<<< Updated upstream
 // ==========================================
 // 4. ELIMINAR CORREO / NOTIFICACIÓN
 // ==========================================
+=======
+// =====================================================
+// ELIMINAR NOTIFICACIÓN
+// =====================================================
+
+>>>>>>> Stashed changes
 router.delete("/:id", async (req, res) => {
-    try {
-        const [result] = await pool.query("DELETE FROM correos_notificaciones WHERE id_correo = ?", [req.params.id]);
-        if (result.affectedRows === 0) return res.status(404).json({ error: "Correo no encontrado" });
-        res.json({ mensaje: "Registro eliminado exitosamente" });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+  try {
+
+    const [result] = await pool.query(
+      `
+      DELETE FROM correos_notificaciones
+      WHERE id_correo = ?
+      `,
+      [req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        error: "Notificación no encontrada",
+      });
     }
+
+    res.json({
+      mensaje: "Notificación eliminada correctamente",
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Error eliminando notificación:",
+      error
+    );
+
+    res.status(500).json({
+      error: error.message,
+    });
+  }
 });
 
 export default router;

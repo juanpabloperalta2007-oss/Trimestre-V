@@ -1,40 +1,83 @@
 import React, { useEffect, useState } from "react";
+
 import {
   obtenerNotificaciones,
-  enviarCorreo
+  eliminarNotificacion,
 } from "../services/api";
 
+
 function NotificacionesTable() {
-  const [datos, setDatos] = useState([]);
+
+  // ======================================================
+  // ESTADOS
+  // ======================================================
+
+  const [notificaciones, setNotificaciones] = useState([]);
+
   const [cargando, setCargando] = useState(true);
+
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    cargarDatos();
-  }, []);
+  const [eliminando, setEliminando] = useState(null);
 
-  const cargarDatos = async () => {
+
+  // ======================================================
+  // CARGAR NOTIFICACIONES
+  // ======================================================
+
+  const cargarNotificaciones = async () => {
+
     try {
+
       setCargando(true);
+
       setError("");
 
       const respuesta = await obtenerNotificaciones();
 
-      console.log("NOTIFICACIONES:", respuesta);
+      console.log(
+        "NOTIFICACIONES RECIBIDAS:",
+        respuesta
+      );
 
-      if (!Array.isArray(respuesta)) {
-        throw new Error(
-          "El servidor no devolvió una lista de notificaciones."
-        );
+
+      // --------------------------------------------------
+      // NORMALIZAR RESPUESTA
+      // --------------------------------------------------
+
+      let datos = [];
+
+      if (Array.isArray(respuesta)) {
+
+        datos = respuesta;
+
+      } else if (
+        respuesta &&
+        Array.isArray(respuesta.notificaciones)
+      ) {
+
+        datos = respuesta.notificaciones;
+
+      } else if (
+        respuesta &&
+        Array.isArray(respuesta.data)
+      ) {
+
+        datos = respuesta.data;
+
       }
 
-      setDatos(respuesta);
+
+      setNotificaciones(datos);
+
 
     } catch (error) {
+
       console.error(
-        "ERROR NOTIFICACIONES:",
+        "ERROR AL CARGAR NOTIFICACIONES:",
         error
       );
+
 
       setError(
         error.response?.data?.error ||
@@ -42,188 +85,556 @@ function NotificacionesTable() {
         "No fue posible cargar las notificaciones."
       );
 
+
+      setNotificaciones([]);
+
     } finally {
+
       setCargando(false);
+
     }
+
   };
 
-  const enviar = async (id) => {
+
+  // ======================================================
+  // CARGAR AL ABRIR LA PÁGINA
+  // ======================================================
+
+  useEffect(() => {
+
+    cargarNotificaciones();
+
+  }, []);
+
+
+  // ======================================================
+  // OBTENER ID
+  // ======================================================
+
+  const obtenerId = (notificacion) => {
+
+    return (
+      notificacion.id_notificacion ??
+      notificacion.id ??
+      notificacion.id_correo ??
+      null
+    );
+
+  };
+
+
+  // ======================================================
+  // ELIMINAR NOTIFICACIÓN
+  // ======================================================
+
+  const eliminar = async (notificacion) => {
+
+    const id = obtenerId(notificacion);
+
+
+    // --------------------------------------------------
+    // VALIDAR ID
+    // --------------------------------------------------
+
+    if (
+      id === null ||
+      id === undefined ||
+      id === ""
+    ) {
+
+      alert(
+        "No se encontró el ID de la notificación."
+      );
+
+      console.error(
+        "NOTIFICACIÓN SIN ID:",
+        notificacion
+      );
+
+      return;
+
+    }
+
+
+    // --------------------------------------------------
+    // CONFIRMACIÓN
+    // --------------------------------------------------
+
+    const confirmar = window.confirm(
+      "¿Está seguro de eliminar esta notificación?"
+    );
+
+
+    if (!confirmar) {
+
+      return;
+
+    }
+
+
     try {
 
-      await enviarCorreo(id);
+      setEliminando(id);
 
-      alert("Correo enviado correctamente.");
 
-      cargarDatos();
+      console.log(
+        "ELIMINANDO NOTIFICACIÓN ID:",
+        id
+      );
+
+
+      // ------------------------------------------------
+      // LLAMAR AL BACKEND
+      // ------------------------------------------------
+
+      await eliminarNotificacion(id);
+
+
+      // ------------------------------------------------
+      // QUITAR DE LA TABLA
+      // ------------------------------------------------
+
+      setNotificaciones((actuales) => {
+
+        return actuales.filter((item) => {
+
+          const idItem = obtenerId(item);
+
+          return String(idItem) !== String(id);
+
+        });
+
+      });
+
+
+      console.log(
+        "NOTIFICACIÓN ELIMINADA CORRECTAMENTE"
+      );
+
 
     } catch (error) {
 
       console.error(
-        "ERROR AL ENVIAR:",
+        "ERROR AL ELIMINAR NOTIFICACIÓN:",
         error
       );
 
+
       alert(
         error.response?.data?.error ||
-        "No fue posible enviar el correo."
+        error.message ||
+        "No fue posible eliminar la notificación."
       );
+
+
+    } finally {
+
+      setEliminando(null);
+
     }
+
   };
 
+
+  // ======================================================
+  // CARGANDO
+  // ======================================================
+
   if (cargando) {
+
     return (
+
       <div className="card shadow-sm">
-        <div className="card-body text-center p-5">
 
-          <div className="spinner-border text-primary"></div>
+        <div
+          className="card-header text-white"
+          style={{
+            backgroundColor: "#0d6efd",
+          }}
+        >
 
-          <p className="mt-3">
+          <h5 className="mb-0">
+            Notificaciones
+          </h5>
+
+        </div>
+
+
+        <div className="card-body text-center py-5">
+
+          <div
+            className="spinner-border text-primary"
+            role="status"
+          >
+
+            <span className="visually-hidden">
+              Cargando...
+            </span>
+
+          </div>
+
+
+          <p className="mt-3 mb-0">
             Cargando notificaciones...
           </p>
 
         </div>
+
       </div>
+
     );
+
   }
 
+
+  // ======================================================
+  // ERROR
+  // ======================================================
+
   if (error) {
+
     return (
+
       <div className="card shadow-sm">
 
-        <div className="card-header bg-primary text-white">
+        <div
+          className="card-header text-white"
+          style={{
+            backgroundColor: "#0d6efd",
+          }}
+        >
+
           <h5 className="mb-0">
-            <i className="bi bi-envelope-fill me-2"></i>
             Notificaciones
           </h5>
+
         </div>
+
 
         <div className="card-body">
 
           <div className="alert alert-danger">
+
+            <strong>Error:</strong>{" "}
+
             {error}
+
           </div>
 
+
           <button
+            type="button"
             className="btn btn-primary"
-            onClick={cargarDatos}
+            onClick={cargarNotificaciones}
           >
+
             Intentar nuevamente
+
           </button>
 
         </div>
 
       </div>
+
     );
+
   }
 
-  return (
-    <div className="card shadow">
 
-      <div className="card-header bg-primary text-white">
+  // ======================================================
+  // VISTA PRINCIPAL
+  // ======================================================
+
+  return (
+
+    <div className="card shadow-sm">
+
+
+      {/* ==================================================
+          ENCABEZADO
+      ================================================== */}
+
+      <div
+        className="card-header text-white"
+        style={{
+          backgroundColor: "#0d6efd",
+        }}
+      >
 
         <h5 className="mb-0">
-          <i className="bi bi-envelope-fill me-2"></i>
           Notificaciones
         </h5>
 
       </div>
 
-      <div className="card-body">
+
+      {/* ==================================================
+          SI NO HAY NOTIFICACIONES
+      ================================================== */}
+
+      {notificaciones.length === 0 ? (
+
+        <div className="card-body text-center py-5">
+
+          <h5 className="mb-3">
+            No hay notificaciones
+          </h5>
+
+          <p className="text-muted mb-0">
+            Actualmente no hay notificaciones registradas.
+          </p>
+
+        </div>
+
+      ) : (
+
+
+        /* =================================================
+           TABLA
+        ================================================= */
 
         <div className="table-responsive">
 
-          <table className="table table-hover table-bordered align-middle">
+          <table className="table table-hover table-bordered mb-0">
+
+            {/* ==============================================
+                CABECERA
+            ============================================== */}
 
             <thead className="table-light">
 
               <tr>
-                <th>Estudiante</th>
-                <th>Acudiente</th>
-                <th>Correo</th>
-                <th>Fecha</th>
-                <th>Estado</th>
-                <th>Acción</th>
+
+                <th>
+                  ID
+                </th>
+
+                <th>
+                  Asunto
+                </th>
+
+                <th>
+                  Mensaje
+                </th>
+
+                <th>
+                  Tipo
+                </th>
+
+                <th>
+                  Estado
+                </th>
+
+                <th>
+                  Fecha
+                </th>
+
+                <th
+                  className="text-center"
+                  style={{
+                    minWidth: "120px",
+                  }}
+                >
+                  Acciones
+                </th>
+
               </tr>
 
             </thead>
 
+
+            {/* ==============================================
+                CUERPO
+            ============================================== */}
+
             <tbody>
 
-              {datos.length > 0 ? (
+              {notificaciones.map(
+                (notificacion, index) => {
 
-                datos.map((n) => (
+                  const id =
+                    obtenerId(notificacion);
 
-                  <tr key={n.id}>
 
-                    <td>
-                      {n.estudiante || "Sin información"}
-                    </td>
+                  const asunto =
+                    notificacion.asunto ||
+                    "Sin asunto";
 
-                    <td>
-                      {n.acudiente || "Sin información"}
-                    </td>
 
-                    <td>
-                      {n.correo || "Sin correo"}
-                    </td>
+                  const mensaje =
+                    notificacion.mensaje ||
+                    "Sin mensaje";
 
-                    <td>
-                      {n.fecha || "Sin fecha"}
-                    </td>
 
-                    <td>
+                  const tipo =
+                    notificacion.tipo ||
+                    "Sin tipo";
 
-                      {n.estado === "Pendiente" ? (
 
-                        <span className="badge bg-warning text-dark">
-                          Pendiente
+                  const estado =
+                    notificacion.estado ||
+                    "Pendiente";
+
+
+                  const fecha =
+                    notificacion.fecha ||
+                    notificacion.fecha_envio ||
+                    notificacion.created_at ||
+                    null;
+
+
+                  return (
+
+                    <tr
+                      key={
+                        id !== null
+                          ? id
+                          : index
+                      }
+                    >
+
+
+                      {/* ==================================
+                          ID
+                      ================================== */}
+
+                      <td>
+
+                        {id ?? "-"}
+
+                      </td>
+
+
+                      {/* ==================================
+                          ASUNTO
+                      ================================== */}
+
+                      <td>
+
+                        {asunto}
+
+                      </td>
+
+
+                      {/* ==================================
+                          MENSAJE
+                      ================================== */}
+
+                      <td>
+
+                        {mensaje}
+
+                      </td>
+
+
+                      {/* ==================================
+                          TIPO
+                      ================================== */}
+
+                      <td>
+
+                        {tipo}
+
+                      </td>
+
+
+                      {/* ==================================
+                          ESTADO
+                      ================================== */}
+
+                      <td>
+
+                        <span
+                          className={
+                            String(estado)
+                              .toLowerCase()
+                              .trim() === "enviado"
+                              ? "badge bg-success"
+                              : "badge bg-secondary"
+                          }
+                          style={{
+                            fontSize: "13px",
+                          }}
+                        >
+
+                          {estado}
+
                         </span>
 
-                      ) : (
+                      </td>
 
-                        <span className="badge bg-success">
-                          Enviado
-                        </span>
 
-                      )}
+                      {/* ==================================
+                          FECHA
+                      ================================== */}
 
-                    </td>
+                      <td>
 
-                    <td>
+                        {fecha
+                          ? new Date(
+                              fecha
+                            ).toLocaleString(
+                              "es-CO"
+                            )
+                          : "Sin fecha"}
 
-                      <button
-                        className="btn btn-success btn-sm"
-                        disabled={n.estado === "Enviado"}
-                        onClick={() => enviar(n.id)}
-                      >
+                      </td>
 
-                        <i className="bi bi-send-fill me-1"></i>
 
-                        {n.estado === "Pendiente"
-                          ? "Enviar"
-                          : "Enviado"}
+                      {/* ==================================
+                          ACCIONES
+                      ================================== */}
 
-                      </button>
+                      <td className="text-center">
 
-                    </td>
+                        <button
+                          type="button"
+                          className="btn btn-danger btn-sm"
+                          onClick={() =>
+                            eliminar(
+                              notificacion
+                            )
+                          }
+                          disabled={
+                            eliminando === id
+                          }
+                          title="Eliminar notificación"
+                          style={{
+                            minWidth: "95px",
+                            height: "36px",
+                            backgroundColor:
+                              "#dc3545",
+                            borderColor:
+                              "#dc3545",
+                            color: "#ffffff",
+                            fontWeight: "bold",
+                            fontSize: "13px",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            padding:
+                              "6px 10px",
+                            opacity:
+                              eliminando === id
+                                ? 0.65
+                                : 1,
+                          }}
+                        >
 
-                  </tr>
+                          {eliminando === id
+                            ? "ELIMINANDO..."
+                            : "ELIMINAR"}
 
-                ))
+                        </button>
 
-              ) : (
+                      </td>
 
-                <tr>
+                    </tr>
 
-                  <td
-                    colSpan="6"
-                    className="text-center text-muted py-4"
-                  >
-                    No hay notificaciones registradas.
-                  </td>
+                  );
 
-                </tr>
-
+                }
               )}
 
             </tbody>
@@ -232,9 +643,32 @@ function NotificacionesTable() {
 
         </div>
 
-      </div>
+      )}
+
+
+      {/* ==================================================
+          PIE DE TABLA
+      ================================================== */}
+
+      {notificaciones.length > 0 && (
+
+        <div className="card-footer text-muted">
+
+          Total de notificaciones:{" "}
+
+          <strong>
+            {notificaciones.length}
+          </strong>
+
+        </div>
+
+      )}
+
     </div>
+
   );
+
 }
+
 
 export default NotificacionesTable;

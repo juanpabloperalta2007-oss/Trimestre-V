@@ -1,4 +1,5 @@
 import mysql from 'mysql2/promise';
+import 'dotenv/config';
 
 // se crea una function para aceptar las conexiones simultanias
 

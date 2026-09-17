@@ -3,149 +3,289 @@ import pool from "../db.js";
 
 const router = Router();
 
-//Obtener registros de todos los datos
-router.get('/', async (req, res) => { 
-    try{
-        // Importante para que la api muestre las filas de la tabla en formato json
-        const [rows] = await pool.query(
-            `SELECT id_curso, nombre_curso, estado
-            FROM cursos`);
-        res.json(rows);
-        //
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
 
-// Obtener todos los cursos
+// ======================================================
+// GET - OBTENER TODOS LOS CURSOS
+// GET /api/cursos
+// ======================================================
+
 router.get("/", async (req, res) => {
-    try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const search = req.query.search || "";
-        const offset = (page - 1) * limit;
+  try {
 
-        let query = "SELECT * FROM cursos";
-        let countQuery = "SELECT COUNT(*) AS total FROM cursos";
-        const params = [];
+    const [rows] = await pool.query(`
+      SELECT
+        id_curso,
+        nombre_curso
+      FROM cursos
+      ORDER BY nombre_curso ASC
+    `);
 
-        if (search) {
-            const searchCondition = " WHERE nombre_curso LIKE ? ";
-            query += searchCondition;
-            countQuery += searchCondition;
-            params.push(`%${search}%`);
-        }
+    console.log("CURSOS ENVIADOS:", rows);
 
-        query += " ORDER BY nombre_curso ASC LIMIT ? OFFSET ?";
+    res.status(200).json(rows);
 
-        const [rows] = await pool.query(query, [...params, limit, offset]);
-        const [countResult] = await pool.query(countQuery, params);
+  } catch (error) {
 
-        const total = countResult[0].total;
-        const totalPages = Math.ceil(total / limit);
+    console.error("ERROR AL OBTENER CURSOS:", error);
 
-        res.json({
-            cursos: rows,
-            pagination: {
-                currentPage: page,
-                totalPages,
-                totalItems: total,
-                limit,
-                hasNextPage: page < totalPages,
-                hasPrevPage: page > 1
-            }
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    res.status(500).json({
+      error: "Error al obtener los cursos.",
+      detalle: error.message
+    });
+
+  }
 });
 
-// Obtener un curso por ID
+
+// ======================================================
+// GET - OBTENER UN CURSO
+// GET /api/cursos/:id
+// ======================================================
+
 router.get("/:id", async (req, res) => {
-    try {
-        const [rows] = await pool.query(
-            "SELECT * FROM cursos WHERE id_curso = ?",
-            [req.params.id]
-        );
 
-        if (rows.length === 0) {
-            return res.status(404).json({ mensaje: "Curso no encontrado" });
-        }
+  try {
 
-        res.json(rows[0]);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    const { id } = req.params;
+
+    const [rows] = await pool.query(
+      `
+      SELECT
+        id_curso,
+        nombre_curso
+      FROM cursos
+      WHERE id_curso = ?
+      `,
+      [id]
+    );
+
+    if (rows.length === 0) {
+
+      return res.status(404).json({
+        error: "Curso no encontrado."
+      });
+
     }
+
+    res.status(200).json(rows[0]);
+
+  } catch (error) {
+
+    console.error("ERROR AL OBTENER CURSO:", error);
+
+    res.status(500).json({
+      error: "Error al obtener el curso.",
+      detalle: error.message
+    });
+
+  }
+
 });
 
-// Crear curso
+
+// ======================================================
+// POST - CREAR CURSO
+// POST /api/cursos
+// ======================================================
+
 router.post("/", async (req, res) => {
-    try {
-        const { nombre_curso, estado } = req.body;
 
-        if (!nombre_curso) {
-            return res.status(400).json({ error: "El nombre del curso es obligatorio" });
-        }
+  try {
 
-        const [existing] = await pool.query(
-            "SELECT id_curso FROM cursos WHERE nombre_curso = ?",
-            [nombre_curso]
-        );
+    const { nombre_curso } = req.body;
 
-        if (existing.length > 0) {
-            return res.status(400).json({ error: "Ya existe un curso con ese nombre" });
-        }
+    if (!nombre_curso || nombre_curso.trim() === "") {
 
-        const [result] = await pool.query(
-            "INSERT INTO cursos (nombre_curso, estado) VALUES (?, ?)",
-            [nombre_curso, estado || "Activo"]
-        );
+      return res.status(400).json({
+        error: "El nombre del curso es obligatorio."
+      });
 
-        res.status(201).json({
-            mensaje: "Curso creado correctamente",
-            id_curso: result.insertId
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
     }
+
+    const nombre = nombre_curso.trim();
+
+    // Verificar si ya existe
+    const [existente] = await pool.query(
+      `
+      SELECT id_curso
+      FROM cursos
+      WHERE nombre_curso = ?
+      `,
+      [nombre]
+    );
+
+    if (existente.length > 0) {
+
+      return res.status(409).json({
+        error: "El curso ya existe."
+      });
+
+    }
+
+    const [resultado] = await pool.query(
+      `
+      INSERT INTO cursos
+      (nombre_curso)
+      VALUES (?)
+      `,
+      [nombre]
+    );
+
+    res.status(201).json({
+      mensaje: "Curso creado correctamente.",
+      curso: {
+        id_curso: resultado.insertId,
+        nombre_curso: nombre
+      }
+    });
+
+  } catch (error) {
+
+    console.error("ERROR AL CREAR CURSO:", error);
+
+    res.status(500).json({
+      error: "Error al crear el curso.",
+      detalle: error.message
+    });
+
+  }
+
 });
 
-// Actualizar curso
+
+// ======================================================
+// PUT - ACTUALIZAR CURSO
+// PUT /api/cursos/:id
+// ======================================================
+
 router.put("/:id", async (req, res) => {
-    try {
-        const { nombre_curso, estado } = req.body;
 
-        const [result] = await pool.query(
-            "UPDATE cursos SET nombre_curso = ?, estado = ? WHERE id_curso = ?",
-            [nombre_curso, estado, req.params.id]
-        );
+  try {
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: "Curso no encontrado" });
-        }
+    const { id } = req.params;
+    const { nombre_curso } = req.body;
 
-        res.json({ mensaje: "Curso actualizado correctamente" });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    if (!nombre_curso || nombre_curso.trim() === "") {
+
+      return res.status(400).json({
+        error: "El nombre del curso es obligatorio."
+      });
+
     }
+
+    const nombre = nombre_curso.trim();
+
+    const [curso] = await pool.query(
+      `
+      SELECT id_curso
+      FROM cursos
+      WHERE id_curso = ?
+      `,
+      [id]
+    );
+
+    if (curso.length === 0) {
+
+      return res.status(404).json({
+        error: "Curso no encontrado."
+      });
+
+    }
+
+    const [resultado] = await pool.query(
+      `
+      UPDATE cursos
+      SET nombre_curso = ?
+      WHERE id_curso = ?
+      `,
+      [nombre, id]
+    );
+
+    res.status(200).json({
+      mensaje: "Curso actualizado correctamente.",
+      actualizado: resultado.affectedRows > 0
+    });
+
+  } catch (error) {
+
+    console.error("ERROR AL ACTUALIZAR CURSO:", error);
+
+    res.status(500).json({
+      error: "Error al actualizar el curso.",
+      detalle: error.message
+    });
+
+  }
+
 });
 
-// Eliminar curso
+
+// ======================================================
+// DELETE - ELIMINAR CURSO
+// DELETE /api/cursos/:id
+// ======================================================
+
 router.delete("/:id", async (req, res) => {
-    try {
-        const [result] = await pool.query(
-            "DELETE FROM cursos WHERE id_curso = ?",
-            [req.params.id]
-        );
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: "Curso no encontrado" });
-        }
+  try {
 
-        res.json({ mensaje: "Curso eliminado exitosamente" });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    const { id } = req.params;
+
+    const [curso] = await pool.query(
+      `
+      SELECT id_curso
+      FROM cursos
+      WHERE id_curso = ?
+      `,
+      [id]
+    );
+
+    if (curso.length === 0) {
+
+      return res.status(404).json({
+        error: "Curso no encontrado."
+      });
+
     }
+
+    const [resultado] = await pool.query(
+      `
+      DELETE FROM cursos
+      WHERE id_curso = ?
+      `,
+      [id]
+    );
+
+    res.status(200).json({
+      mensaje: "Curso eliminado correctamente.",
+      eliminado: resultado.affectedRows > 0
+    });
+
+  } catch (error) {
+
+    console.error("ERROR AL ELIMINAR CURSO:", error);
+
+    // El curso tiene registros relacionados
+    if (
+      error.code === "ER_ROW_IS_REFERENCED_2" ||
+      error.code === "ER_ROW_IS_REFERENCED"
+    ) {
+
+      return res.status(409).json({
+        error:
+          "No se puede eliminar el curso porque tiene información relacionada con estudiantes, asignaturas u otras tablas."
+      });
+
+    }
+
+    res.status(500).json({
+      error: "Error al eliminar el curso.",
+      detalle: error.message
+    });
+
+  }
+
 });
+
 
 export default router;

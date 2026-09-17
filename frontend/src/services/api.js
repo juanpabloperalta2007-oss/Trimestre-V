@@ -1,41 +1,536 @@
-import axios from 'axios';
+import axios from "axios";
+
+
+// ======================================================
+// CONFIGURACIÓN
+// ======================================================
 
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api', // Ajusta la URL/puerto de tu backend si es diferente
+
+  baseURL: "http://localhost:5000/api",
+
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
+
 });
 
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+
+// ======================================================
+// TOKEN
+// ======================================================
+
+API.interceptors.request.use(
+
+  (config) => {
+
+    const token = localStorage.getItem("token");
+
+    if (token) {
+
+      config.headers.Authorization =
+        `Bearer ${token}`;
+
+    }
+
+    return config;
+
+  },
+
+  (error) => {
+
+    return Promise.reject(error);
+
   }
-  return config;
-});
 
-// Cursos e Inasistencias
-export const obtenerCursos = async () => (await API.get('/cursos')).data;
-export const obtenerInasistencias = async () => (await API.get('/inasistencias')).data;
-export const eliminarInasistencia = async (id) => (await API.delete(`/inasistencias/${id}`)).data;
+);
 
-// Excusas
-export const obtenerExcusas = async () => (await API.get('/excusas')).data;
-export const aprobarExcusa = async (id) => (await API.put(`/excusas/aprobar/${id}`)).data;
-export const rechazarExcusa = async (id) => (await API.put(`/excusas/rechazar/${id}`)).data;
 
-// Notificaciones
-export const obtenerNotificaciones = async () => (await API.get('/notificaciones')).data;
-export const enviarCorreo = async (datos) => (await API.post('/notificaciones/enviar', datos)).data;
+// ======================================================
+// CURSOS
+// ======================================================
 
-// Reportes
-export const obtenerReportes = async () => (await API.get('/reportes')).data;
+export const obtenerCursos = async () => {
 
-// Usuarios
-export const obtenerUsuarios = async () => (await API.get('/usuarios')).data;
-export const eliminarUsuario = async (id) => (await API.delete(`/usuarios/${id}`)).data;
+  const response = await API.get("/cursos");
 
-export const actualizarUsuario = async (id, datos) => (await API.put(`/usuarios/${id}`, datos)).data;
+  const data = response.data;
+
+  console.log(
+    "RESPUESTA DE /api/cursos:",
+    data
+  );
+
+  if (Array.isArray(data)) {
+
+    return data;
+
+  }
+
+  if (
+    data &&
+    Array.isArray(data.cursos)
+  ) {
+
+    return data.cursos;
+
+  }
+
+  return [];
+
+};
+
+
+// ======================================================
+// ASISTENCIAS
+// ======================================================
+
+export const obtenerInasistencias = async () => {
+
+  const response = await API.get(
+    "/asistencias?limit=1000"
+  );
+
+  const data = response.data;
+
+  console.log(
+    "RESPUESTA DE /api/asistencias:",
+    data
+  );
+
+  if (Array.isArray(data)) {
+
+    return data;
+
+  }
+
+  if (
+    data &&
+    Array.isArray(data.asistencias)
+  ) {
+
+    return data.asistencias;
+
+  }
+
+  return [];
+
+};
+
+
+// ======================================================
+// ELIMINAR INASISTENCIA
+// ======================================================
+
+export const eliminarInasistencia = async (id) => {
+
+  const response = await API.delete(
+    `/asistencias/${id}`
+  );
+
+  return response.data;
+
+};
+
+
+// ======================================================
+// CREAR ASISTENCIA
+// ======================================================
+
+export const crearAsistencia = async (datos) => {
+
+  const response = await API.post(
+    "/asistencias",
+    datos
+  );
+
+  return response.data;
+
+};
+
+
+// ======================================================
+// ACTUALIZAR ASISTENCIA
+// ======================================================
+
+export const actualizarAsistencia = async (
+  id,
+  datos
+) => {
+
+  const response = await API.put(
+    `/asistencias/${id}`,
+    datos
+  );
+
+  return response.data;
+
+};
+
+
+// ======================================================
+// EXCUSAS
+// ======================================================
+
+export const obtenerExcusas = async () => {
+
+  try {
+
+    const response = await API.get(
+      "/excusas"
+    );
+
+    const data = response.data;
+
+    if (Array.isArray(data)) {
+
+      return data;
+
+    }
+
+    if (
+      data &&
+      Array.isArray(data.excusas)
+    ) {
+
+      return data.excusas;
+
+    }
+
+    return [];
+
+  } catch (error) {
+
+    console.error(
+      "ERROR OBTENIENDO EXCUSAS:",
+      error
+    );
+
+    if (
+      error.response?.status === 404
+    ) {
+
+      return [];
+
+    }
+
+    throw error;
+
+  }
+
+};
+
+
+// ======================================================
+// APROBAR EXCUSA
+// ======================================================
+
+export const aprobarExcusa = async (id) => {
+
+  const response = await API.put(
+    `/excusas/aprobar/${id}`
+  );
+
+  return response.data;
+
+};
+
+
+// ======================================================
+// RECHAZAR EXCUSA
+// ======================================================
+
+export const rechazarExcusa = async (id) => {
+
+  const response = await API.put(
+    `/excusas/rechazar/${id}`
+  );
+
+  return response.data;
+
+};
+
+
+// ======================================================
+// NOTIFICACIONES
+// ======================================================
+
+export const obtenerNotificaciones = async () => {
+
+  const response = await API.get(
+    "/correos_notificaciones"
+  );
+
+  const data = response.data;
+
+  if (Array.isArray(data)) {
+
+    return data;
+
+  }
+
+  if (
+    data &&
+    Array.isArray(data.notificaciones)
+  ) {
+
+    return data.notificaciones;
+
+  }
+
+  return [];
+
+};
+
+
+// ======================================================
+// ELIMINAR NOTIFICACIÓN
+// ======================================================
+
+export const eliminarNotificacion = async (id) => {
+
+  const response = await API.delete(
+    `/correos_notificaciones/${id}`
+  );
+
+  return response.data;
+
+};
+
+
+// ======================================================
+// ENVIAR NOTIFICACIÓN
+// ======================================================
+
+export const enviarCorreo = async (datos) => {
+
+  const response = await API.post(
+    "/correos_notificaciones",
+    datos
+  );
+
+  return response.data;
+
+};
+
+
+// ======================================================
+// REPORTES
+// ======================================================
+
+export const obtenerReportes = async () => {
+
+  const response = await API.get(
+    "/reportes"
+  );
+
+  const data = response.data;
+
+  console.log(
+    "RESPUESTA DE /api/reportes:",
+    data
+  );
+
+  if (Array.isArray(data)) {
+
+    return data;
+
+  }
+
+  if (
+    data &&
+    Array.isArray(data.reportes)
+  ) {
+
+    return data.reportes;
+
+  }
+
+  return [];
+
+};
+
+
+// ======================================================
+// USUARIOS
+// ======================================================
+
+export const obtenerUsuarios = async () => {
+
+  const response = await API.get(
+    "/usuarios"
+  );
+
+  const data = response.data;
+
+  if (Array.isArray(data)) {
+
+    return data;
+
+  }
+
+  if (
+    data &&
+    Array.isArray(data.usuarios)
+  ) {
+
+    return data.usuarios;
+
+  }
+
+  return [];
+
+};
+
+
+// ======================================================
+// ELIMINAR USUARIO
+// ======================================================
+
+export const eliminarUsuario = async (id) => {
+
+  const response = await API.delete(
+    `/usuarios/${id}`
+  );
+
+  return response.data;
+
+};
+
+
+// ======================================================
+// ACTUALIZAR USUARIO
+// ======================================================
+
+export const actualizarUsuario = async (
+  id,
+  datos
+) => {
+
+  const response = await API.put(
+    `/usuarios/${id}`,
+    datos
+  );
+
+  return response.data;
+
+};
+
+
+// ======================================================
+// CREAR USUARIO
+// ======================================================
+
+export const crearUsuario = async (datos) => {
+
+  const response = await API.post(
+    "/usuarios",
+    datos
+  );
+
+  return response.data;
+
+};
+
+
+// ======================================================
+// ESTUDIANTES
+// ======================================================
+
+export const obtenerEstudiantes = async () => {
+
+  const response = await API.get(
+    "/estudiantes"
+  );
+
+  const data = response.data;
+
+  if (Array.isArray(data)) {
+
+    return data;
+
+  }
+
+  if (
+    data &&
+    Array.isArray(data.estudiantes)
+  ) {
+
+    return data.estudiantes;
+
+  }
+
+  return [];
+
+};
+
+
+// ======================================================
+// DOCENTES
+// ======================================================
+
+export const obtenerDocentes = async () => {
+
+  const response = await API.get(
+    "/docentes"
+  );
+
+  const data = response.data;
+
+  if (Array.isArray(data)) {
+
+    return data;
+
+  }
+
+  if (
+    data &&
+    Array.isArray(data.docentes)
+  ) {
+
+    return data.docentes;
+
+  }
+
+  return [];
+
+};
+
+
+// ======================================================
+// ACUDIENTES
+// ======================================================
+
+export const obtenerAcudientes = async () => {
+
+  const response = await API.get(
+    "/acudientes"
+  );
+
+  const data = response.data;
+
+  if (Array.isArray(data)) {
+
+    return data;
+
+  }
+
+  if (
+    data &&
+    Array.isArray(data.acudientes)
+  ) {
+
+    return data.acudientes;
+
+  }
+
+  return [];
+
+};
+
+
+// ======================================================
+// EXPORTACIÓN
+// ======================================================
 
 export default API;
