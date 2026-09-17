@@ -7,7 +7,7 @@ import "../../styles/Registro.css";
 function Registro() {
   const navigate = useNavigate();
 
-  // Estado con la estructura requerida por la base de datos
+  // Estado con la estructura requerida por tu base de datos
   const [formData, setFormData] = useState({
     tipo_documento: "CC",
     numero_documento: "",
@@ -15,17 +15,85 @@ function Registro() {
     primer_apellido: "",
     correo: "",
     password: "",
-    id_cargo: "4" // 4 = Acudiente (por defecto), 3 = Docente
+    id_cargo: "4", // 4 = Acudiente (por defecto), 3 = Docente
   });
 
   const [registrado, setRegistrado] = useState(false);
   const [error, setError] = useState("");
+  const [cargando, setCargando] = useState(false);
 
+  // Manejador de cambios con limpieza en tiempo real
   const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    // 1. Nombre y Apellido: Bloquear números y caracteres especiales
+    if (name === "primer_nombre" || name === "primer_apellido") {
+      const soloLetras = value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "");
+      setFormData({ ...formData, [name]: soloLetras });
+      return;
+    }
+
+    // 2. Número de documento: Aceptar únicamente números
+    if (name === "numero_documento") {
+      const soloNumeros = value.replace(/\D/g, "");
+      setFormData({ ...formData, [name]: soloNumeros });
+      return;
+    }
+
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value,
     });
+  };
+
+  // Función con todas las reglas de validación
+  const validarFormulario = () => {
+    const {
+      numero_documento,
+      primer_nombre,
+      primer_apellido,
+      correo,
+      password,
+    } = formData;
+
+    // Validar campos vacíos
+    if (
+      !primer_nombre.trim() ||
+      !primer_apellido.trim() ||
+      !numero_documento.trim() ||
+      !correo.trim() ||
+      !password
+    ) {
+      return "Todos los campos son obligatorios.";
+    }
+
+    // Validar longitud del documento
+    if (numero_documento.length < 6 || numero_documento.length > 15) {
+      return "El número de documento debe tener entre 6 y 15 dígitos.";
+    }
+
+    // Validar que nombre y apellido contengan solo letras
+    const regexTexto = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+    if (!regexTexto.test(primer_nombre.trim())) {
+      return "El primer nombre no puede contener números ni caracteres especiales.";
+    }
+    if (!regexTexto.test(primer_apellido.trim())) {
+      return "El primer apellido no puede contener números ni caracteres especiales.";
+    }
+
+    // Validar formato de correo
+    const regexCorreo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!regexCorreo.test(correo.trim())) {
+      return "Ingrese un correo electrónico válido.";
+    }
+
+    // Validar contraseña (8-20 caracteres, letras y números, sin espacios ni caracteres especiales)
+    const regexPassword = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,20}$/;
+    if (!regexPassword.test(password)) {
+      return "La contraseña debe tener entre 8 y 20 caracteres, contener letras y números, y no incluir espacios ni caracteres especiales.";
+    }
+
+    return null; // Todo correcto
   };
 
   const manejarRegistro = async (e) => {
@@ -33,18 +101,43 @@ function Registro() {
     setRegistrado(false);
     setError("");
 
+    // Ejecutar validaciones previas al envio
+    const mensajeError = validarFormulario();
+    if (mensajeError) {
+      setError(mensajeError);
+      return;
+    }
+
+    setCargando(true);
+
+    // Preparar payload con strings limpios
+    const datosEnvio = {
+      ...formData,
+      primer_nombre: formData.primer_nombre.trim(),
+      primer_apellido: formData.primer_apellido.trim(),
+      numero_documento: formData.numero_documento.trim(),
+      correo: formData.correo.trim(),
+    };
+
     try {
-      await axios.post("http://localhost:5000/api/usuarios/registro-publico", formData);
-      
+      await axios.post(
+        "http://localhost:5000/api/usuarios/registro-publico",
+        datosEnvio
+      );
+
       setRegistrado(true);
 
-      // Redirección hacia la vista de Login despues de 1.5 segundos
+      // Redirección hacia la vista de Login tras 1.5 segundos
       setTimeout(() => {
         navigate("/");
       }, 1500);
-
     } catch (err) {
-      setError(err.response?.data?.error || "Error al realizar el registro. Intente de nuevo.");
+      setError(
+        err.response?.data?.error ||
+          "Error al realizar el registro. Intente de nuevo."
+      );
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -53,12 +146,14 @@ function Registro() {
       <h1>Liceo Antonio De Toledo</h1>
       <h2>Registrar Usuario</h2>
       <hr />
-      
+
       <form onSubmit={manejarRegistro}>
         {/* Documento de Identidad */}
         <div className="row mb-3">
           <div className="col-4">
-            <label htmlFor="tipo_documento" className="form-label">Tipo Doc.</label>
+            <label htmlFor="tipo_documento" className="form-label">
+              Tipo Doc.
+            </label>
             <select
               className="form-select"
               id="tipo_documento"
@@ -74,7 +169,9 @@ function Registro() {
             </select>
           </div>
           <div className="col-8">
-            <label htmlFor="numero_documento" className="form-label">N° Documento</label>
+            <label htmlFor="numero_documento" className="form-label">
+              N° Documento
+            </label>
             <input
               type="text"
               className="form-control"
@@ -90,7 +187,9 @@ function Registro() {
 
         {/* Nombres y Apellidos */}
         <div className="mb-3">
-          <label htmlFor="primer_nombre" className="form-label">Primer Nombre</label>
+          <label htmlFor="primer_nombre" className="form-label">
+            Primer Nombre
+          </label>
           <input
             type="text"
             className="form-control"
@@ -104,7 +203,9 @@ function Registro() {
         </div>
 
         <div className="mb-3">
-          <label htmlFor="primer_apellido" className="form-label">Primer Apellido</label>
+          <label htmlFor="primer_apellido" className="form-label">
+            Primer Apellido
+          </label>
           <input
             type="text"
             className="form-control"
@@ -119,7 +220,9 @@ function Registro() {
 
         {/* Correo Electrónico */}
         <div className="mb-3">
-          <label htmlFor="correo" className="form-label">Correo electrónico</label>
+          <label htmlFor="correo" className="form-label">
+            Correo electrónico
+          </label>
           <input
             type="email"
             className="form-control"
@@ -132,9 +235,11 @@ function Registro() {
           />
         </div>
 
-        {/* Rol Restringido únicamente a Acudiente (4) y Docente (3) */}
+        {/* Rol Restringido a Acudiente (4) y Docente (3) */}
         <div className="mb-3">
-          <label htmlFor="id_cargo" className="form-label">Rol</label>
+          <label htmlFor="id_cargo" className="form-label">
+            Rol
+          </label>
           <select
             className="form-select"
             id="id_cargo"
@@ -150,7 +255,9 @@ function Registro() {
 
         {/* Contraseña */}
         <div className="mb-3">
-          <label htmlFor="password" className="form-label">Contraseña</label>
+          <label htmlFor="password" className="form-label">
+            Contraseña
+          </label>
           <input
             type="password"
             className="form-control"
@@ -167,7 +274,13 @@ function Registro() {
         </div>
 
         <div className="mb-3">
-          <button type="submit" className="btn btn-success w-100">Registrarse</button>
+          <button
+            type="submit"
+            className="btn btn-success w-100"
+            disabled={cargando}
+          >
+            {cargando ? "Registrando..." : "Registrarse"}
+          </button>
         </div>
 
         {registrado && (

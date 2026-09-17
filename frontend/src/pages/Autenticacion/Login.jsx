@@ -12,11 +12,18 @@ function Login() {
   const manejarSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    // Validación básica antes de enviar la petición al backend
+    if (password.length < 8 || password.length > 20) {
+      setError("La contraseña debe tener entre 8 y 20 caracteres.");
+      return;
+    }
+
     setCargando(true);
 
     try {
       const respuesta = await axios.post("http://localhost:5000/api/usuarios/login", {
-        correo,
+        correo: correo.trim(),
         password
       });
 
@@ -28,13 +35,13 @@ function Login() {
       // Redirección condicional según el id_cargo
       switch (parseInt(usuario.id_cargo)) {
         case 1:
-          navigate("/vista_admin"); // O /admin según la ruta de App.jsx
+          navigate("/vista_admin");
           break;
         case 2:
           navigate("/coordinador");
           break;
         case 3:
-          navigate("/inicio"); // O /docente según la ruta de App.jsx
+          navigate("/inicio");
           break;
         case 4:
           navigate("/acudiente");
@@ -84,6 +91,8 @@ function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
+              minLength={8}
+              maxLength={20}
               required
             />
             <small className="form-text text-muted">Entre 8 y 20 caracteres.</small>
@@ -99,7 +108,7 @@ function Login() {
           </button>
 
           {error && (
-            <div className="alert alert-info mt-3 p-2 text-center small" role="alert">
+            <div className="alert alert-danger mt-3 p-2 text-center small" role="alert">
               {error}
             </div>
           )}
@@ -114,7 +123,6 @@ function Login() {
             ¿Olvidaste tu contraseña?
           </Link>
           
-          {/* BOTÓN REGISTRARSE VISIBLE Y CON ESTILOS FORZADOS */}
           <Link 
             to="/registro" 
             className="btn w-100 fw-bold d-block text-center"

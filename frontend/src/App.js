@@ -17,7 +17,7 @@ import { AuthProvider } from "./context/AuthContext";
 import Login from "./pages/Autenticacion/Login";
 import Registro from "./pages/Autenticacion/Registro";
 import EnviarPin from "./pages/Autenticacion/Enviar_pin";
-import NuevaContrasena from "./pages/Autenticacion/Nueva_contrasena";
+import NuevaContrasena from "./pages/Autenticacion/NuevaContrasena";
 
 // ==============================
 // ADMINISTRADOR
@@ -26,6 +26,7 @@ import VistaAdmin from "./pages/Administrador/Vista_admin";
 import EditarUsuario from "./pages/Administrador/EditarUsuario";
 import RegistrarUsuario from "./pages/Administrador/RegistrarUsuario";
 import VerUsuario from "./pages/Administrador/VerUsuario";
+import Permisos from "./pages/Administrador/Permisos"; // <-- 1. IMPORTANTE: Ajusta la ruta si tu archivo está en otra carpeta
 
 // ==============================
 // DOCENTE
@@ -176,6 +177,8 @@ function App() {
           <Route path="/registrar_usuario" element={<RutaProtegida cargoPermitido={1}><RegistrarUsuario /></RutaProtegida>} />
           <Route path="/editar_usuario" element={<RutaProtegida cargoPermitido={1}><EditarUsuario /></RutaProtegida>} />
           <Route path="/ver_usuario" element={<RutaProtegida cargoPermitido={1}><VerUsuario /></RutaProtegida>} />
+          {/* 2. NUEVA RUTA AGREGADA PARA PERMISOS */}
+          <Route path="/permisos" element={<RutaProtegida cargoPermitido={1}><Permisos /></RutaProtegida>} />
 
           {/* DOCENTE */}
           <Route path="/docente" element={<RutaProtegida cargoPermitido={3}><Inicio /></RutaProtegida>} />
