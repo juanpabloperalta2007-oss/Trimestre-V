@@ -1,240 +1,440 @@
 import React, { useEffect, useState } from "react";
 import {
-  obtenerNotificaciones,
-  enviarCorreo
+    obtenerNotificaciones,
+    eliminarNotificacion
 } from "../services/api";
 
 function NotificacionesTable() {
-  const [datos, setDatos] = useState([]);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState("");
 
-  useEffect(() => {
-    cargarDatos();
-  }, []);
+    const [notificaciones, setNotificaciones] = useState([]);
+    const [cargando, setCargando] = useState(true);
+    const [error, setError] = useState("");
 
-  const cargarDatos = async () => {
-    try {
-      setCargando(true);
-      setError("");
+    const cargarNotificaciones = async () => {
 
-      const respuesta = await obtenerNotificaciones();
+        try {
 
-      console.log("NOTIFICACIONES:", respuesta);
+            setCargando(true);
+            setError("");
 
-      if (!Array.isArray(respuesta)) {
-        throw new Error(
-          "El servidor no devolvió una lista de notificaciones."
+            const respuesta = await obtenerNotificaciones();
+
+            console.log("RESPUESTA NOTIFICACIONES:", respuesta);
+
+            let datos = [];
+
+            // Caso 1: el backend devuelve directamente un arreglo
+            if (Array.isArray(respuesta)) {
+
+                datos = respuesta;
+
+            }
+
+            // Caso 2: el backend devuelve { correos: [...] }
+            else if (
+                respuesta &&
+                Array.isArray(respuesta.correos)
+            ) {
+
+                datos = respuesta.correos;
+
+            }
+
+            // Caso 3: el backend devuelve { notificaciones: [...] }
+            else if (
+                respuesta &&
+                Array.isArray(respuesta.notificaciones)
+            ) {
+
+                datos = respuesta.notificaciones;
+
+            }
+
+            // Caso 4: el backend devuelve { data: [...] }
+            else if (
+                respuesta &&
+                Array.isArray(respuesta.data)
+            ) {
+
+                datos = respuesta.data;
+
+            }
+
+            else {
+
+                console.error(
+                    "Formato de respuesta no reconocido:",
+                    respuesta
+                );
+
+                throw new Error(
+                    "El servidor no devolvió una lista de notificaciones."
+                );
+            }
+
+            console.log("NOTIFICACIONES RECIBIDAS:", datos);
+
+            setNotificaciones(datos);
+
+        } catch (error) {
+
+            console.error(
+                "ERROR NOTIFICACIONES:",
+                error
+            );
+
+            setError(
+                "No fue posible cargar las notificaciones."
+            );
+
+            setNotificaciones([]);
+
+        } finally {
+
+            setCargando(false);
+
+        }
+    };
+
+
+    useEffect(() => {
+
+        cargarNotificaciones();
+
+    }, []);
+
+
+    const obtenerId = (notificacion) => {
+
+        return (
+            notificacion.id_correo ||
+            notificacion.id_notificacion ||
+            notificacion.id ||
+            null
         );
-      }
+    };
 
-      setDatos(respuesta);
 
-    } catch (error) {
-      console.error(
-        "ERROR NOTIFICACIONES:",
-        error
-      );
+    const eliminar = async (id) => {
 
-      setError(
-        error.response?.data?.error ||
-        error.message ||
-        "No fue posible cargar las notificaciones."
-      );
+        if (!id) {
+            alert("No se encontró el identificador de la notificación.");
+            return;
+        }
 
-    } finally {
-      setCargando(false);
-    }
-  };
+        const confirmar = window.confirm(
+            "¿Deseas eliminar esta notificación?"
+        );
 
-  const enviar = async (id) => {
-    try {
+        if (!confirmar) {
+            return;
+        }
 
-      await enviarCorreo(id);
+        try {
 
-      alert("Correo enviado correctamente.");
+            await eliminarNotificacion(id);
 
-      cargarDatos();
+            setNotificaciones(
+                notificaciones.filter(
+                    (notificacion) =>
+                        obtenerId(notificacion) !== id
+                )
+            );
 
-    } catch (error) {
+        } catch (error) {
 
-      console.error(
-        "ERROR AL ENVIAR:",
-        error
-      );
+            console.error(
+                "ERROR AL ELIMINAR:",
+                error
+            );
 
-      alert(
-        error.response?.data?.error ||
-        "No fue posible enviar el correo."
-      );
-    }
-  };
+            alert(
+                "No fue posible eliminar la notificación."
+            );
+        }
+    };
 
-  if (cargando) {
-    return (
-      <div className="card shadow-sm">
-        <div className="card-body text-center p-5">
 
-          <div className="spinner-border text-primary"></div>
+    const formatearFecha = (fecha) => {
 
-          <p className="mt-3">
-            Cargando notificaciones...
-          </p>
+        if (!fecha) {
+            return "Sin fecha";
+        }
 
-        </div>
-      </div>
-    );
-  }
+        const fechaObj = new Date(fecha);
 
-  if (error) {
-    return (
-      <div className="card shadow-sm">
+        if (isNaN(fechaObj.getTime())) {
+            return fecha;
+        }
 
-        <div className="card-header bg-primary text-white">
-          <h5 className="mb-0">
-            <i className="bi bi-envelope-fill me-2"></i>
-            Notificaciones
-          </h5>
-        </div>
+        return fechaObj.toLocaleDateString("es-CO", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit"
+        });
+    };
 
-        <div className="card-body">
 
-          <div className="alert alert-danger">
-            {error}
-          </div>
+    if (cargando) {
 
-          <button
-            className="btn btn-primary"
-            onClick={cargarDatos}
-          >
-            Intentar nuevamente
-          </button>
+        return (
+            <div className="card border-0 shadow-sm">
 
-        </div>
+                <div className="card-header bg-primary text-white">
+                    <h5 className="mb-0">
+                        Notificaciones
+                    </h5>
+                </div>
 
-      </div>
-    );
-  }
+                <div className="card-body text-center py-5">
 
-  return (
-    <div className="card shadow">
-
-      <div className="card-header bg-primary text-white">
-
-        <h5 className="mb-0">
-          <i className="bi bi-envelope-fill me-2"></i>
-          Notificaciones
-        </h5>
-
-      </div>
-
-      <div className="card-body">
-
-        <div className="table-responsive">
-
-          <table className="table table-hover table-bordered align-middle">
-
-            <thead className="table-light">
-
-              <tr>
-                <th>Estudiante</th>
-                <th>Acudiente</th>
-                <th>Correo</th>
-                <th>Fecha</th>
-                <th>Estado</th>
-                <th>Acción</th>
-              </tr>
-
-            </thead>
-
-            <tbody>
-
-              {datos.length > 0 ? (
-
-                datos.map((n) => (
-
-                  <tr key={n.id}>
-
-                    <td>
-                      {n.estudiante || "Sin información"}
-                    </td>
-
-                    <td>
-                      {n.acudiente || "Sin información"}
-                    </td>
-
-                    <td>
-                      {n.correo || "Sin correo"}
-                    </td>
-
-                    <td>
-                      {n.fecha || "Sin fecha"}
-                    </td>
-
-                    <td>
-
-                      {n.estado === "Pendiente" ? (
-
-                        <span className="badge bg-warning text-dark">
-                          Pendiente
+                    <div
+                        className="spinner-border text-primary"
+                        role="status"
+                    >
+                        <span className="visually-hidden">
+                            Cargando...
                         </span>
+                    </div>
 
-                      ) : (
+                    <p className="mt-3 mb-0 text-muted">
+                        Cargando notificaciones...
+                    </p>
 
-                        <span className="badge bg-success">
-                          Enviado
-                        </span>
+                </div>
 
-                      )}
+            </div>
+        );
+    }
 
-                    </td>
 
-                    <td>
+    if (error) {
 
-                      <button
-                        className="btn btn-success btn-sm"
-                        disabled={n.estado === "Enviado"}
-                        onClick={() => enviar(n.id)}
-                      >
+        return (
+            <div className="card border-0 shadow-sm">
 
-                        <i className="bi bi-send-fill me-1"></i>
+                <div className="card-header bg-primary text-white">
+                    <h5 className="mb-0">
+                        Notificaciones
+                    </h5>
+                </div>
 
-                        {n.estado === "Pendiente"
-                          ? "Enviar"
-                          : "Enviado"}
+                <div className="card-body">
 
-                      </button>
+                    <div className="alert alert-danger mb-0">
+                        {error}
+                    </div>
 
-                    </td>
+                    <button
+                        className="btn btn-primary mt-3"
+                        onClick={cargarNotificaciones}
+                    >
+                        Intentar nuevamente
+                    </button>
 
-                  </tr>
+                </div>
 
-                ))
+            </div>
+        );
+    }
 
-              ) : (
 
-                <tr>
+    return (
 
-                  <td
-                    colSpan="6"
-                    className="text-center text-muted py-4"
-                  >
-                    No hay notificaciones registradas.
-                  </td>
+        <div className="card border-0 shadow-sm">
 
-                </tr>
+            <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
 
-              )}
+                <h5 className="mb-0">
+                    Notificaciones
+                </h5>
 
-            </tbody>
+                <span className="badge bg-light text-primary">
+                    {notificaciones.length}
+                </span>
 
-          </table>
+            </div>
+
+
+            <div className="card-body p-0">
+
+                {notificaciones.length === 0 ? (
+
+                    <div className="text-center py-5">
+
+                        <h4 className="text-dark">
+                            No hay notificaciones
+                        </h4>
+
+                        <p className="text-muted mb-0">
+                            Actualmente no hay notificaciones registradas.
+                        </p>
+
+                    </div>
+
+                ) : (
+
+                    <div className="table-responsive">
+
+                        <table className="table table-hover align-middle mb-0">
+
+                            <thead className="table-light">
+
+                                <tr>
+
+                                    <th>ID</th>
+
+                                    <th>Asunto</th>
+
+                                    <th>Mensaje</th>
+
+                                    <th>Tipo</th>
+
+                                    <th>Fecha</th>
+
+                                    <th>Estado</th>
+
+                                    <th>Acción</th>
+
+                                </tr>
+
+                            </thead>
+
+
+                            <tbody>
+
+                                {notificaciones.map(
+                                    (notificacion) => {
+
+                                        const id =
+                                            obtenerId(
+                                                notificacion
+                                            );
+
+                                        return (
+
+                                            <tr key={id}>
+
+                                                <td>
+                                                    {id || "-"}
+                                                </td>
+
+                                                <td>
+                                                    <strong>
+                                                        {
+                                                            notificacion.asunto ||
+                                                            "Sin asunto"
+                                                        }
+                                                    </strong>
+                                                </td>
+
+                                                <td>
+                                                    {notificacion.mensaje ||
+                                                        "Sin mensaje"}
+                                                </td>
+
+                                                <td>
+
+                                                    <span className="badge bg-info text-dark">
+
+                                                        {
+                                                            notificacion.tipo_notificacion ||
+                                                            "General"
+                                                        }
+
+                                                    </span>
+
+                                                </td>
+
+                                                <td>
+
+                                                    {
+                                                        formatearFecha(
+                                                            notificacion.fecha_envio
+                                                        )
+                                                    }
+
+                                                </td>
+
+                                                <td>
+
+                                                    <span
+                                                        className={
+                                                            notificacion.estado_envio ===
+                                                            "Enviado"
+                                                                ? "badge bg-success"
+                                                                : "badge bg-secondary"
+                                                        }
+                                                    >
+
+                                                        {
+                                                            notificacion.estado_envio ||
+                                                            "Sin estado"
+                                                        }
+
+                                                    </span>
+
+                                                </td>
+
+                                                <td>
+
+                                                    <button
+                                                        className="btn btn-sm btn-outline-danger"
+                                                        onClick={() =>
+                                                            eliminar(id)
+                                                        }
+                                                    >
+                                                        Eliminar
+                                                    </button>
+
+                                                </td>
+
+                                            </tr>
+
+                                        );
+
+                                    }
+                                )}
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                )}
+
+            </div>
+
+
+            <div className="card-footer bg-white">
+
+                <div className="d-flex justify-content-between align-items-center">
+
+                    <small className="text-muted">
+
+                        Total de notificaciones:
+                        <strong className="ms-1">
+                            {notificaciones.length}
+                        </strong>
+
+                    </small>
+
+
+                    <button
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={cargarNotificaciones}
+                    >
+                        Actualizar
+                    </button>
+
+                </div>
+
+            </div>
 
         </div>
 
-      </div>
-    </div>
-  );
+    );
 }
 
 export default NotificacionesTable;

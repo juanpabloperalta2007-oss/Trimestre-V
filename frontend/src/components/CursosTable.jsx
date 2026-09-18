@@ -1,84 +1,480 @@
 import { useEffect, useState } from "react";
+
 import {
   obtenerCursos,
   obtenerInasistencias,
-  eliminarInasistencia,
 } from "../services/api";
+
 
 function CursosTable() {
 
+  // =====================================================
+  // ESTADOS
+  // =====================================================
+
   const [cursos, setCursos] = useState([]);
+
   const [inasistencias, setInasistencias] = useState([]);
+
   const [cursoSeleccionado, setCursoSeleccionado] = useState("");
 
+  const [cargando, setCargando] = useState(true);
+
+  const [error, setError] = useState("");
+
+
+  // =====================================================
+  // CARGAR DATOS
+  // =====================================================
+
   useEffect(() => {
+
     cargarDatos();
+
   }, []);
+
 
   async function cargarDatos() {
 
-    const c = await obtenerCursos();
-    const i = await obtenerInasistencias();
+    setCargando(true);
+    setError("");
 
-    setCursos(c);
-    setInasistencias(i);
+    // ===================================================
+    // OBTENER CURSOS
+    // ===================================================
+
+    try {
+
+      const respuestaCursos =
+        await obtenerCursos();
+
+      console.log(
+        "CURSOS RECIBIDOS:",
+        respuestaCursos
+      );
+
+
+      let cursosProcesados = [];
+
+
+      if (Array.isArray(respuestaCursos)) {
+
+        cursosProcesados =
+          respuestaCursos;
+
+      } else if (
+        respuestaCursos &&
+        Array.isArray(respuestaCursos.cursos)
+      ) {
+
+        cursosProcesados =
+          respuestaCursos.cursos;
+
+      } else if (
+        respuestaCursos &&
+        Array.isArray(respuestaCursos.data)
+      ) {
+
+        cursosProcesados =
+          respuestaCursos.data;
+
+      }
+
+
+      console.log(
+        "CURSOS PROCESADOS:",
+        cursosProcesados
+      );
+
+
+      setCursos(cursosProcesados);
+
+    } catch (error) {
+
+      console.error(
+        "ERROR AL CARGAR CURSOS:",
+        error
+      );
+
+      setCursos([]);
+
+      setError(
+        "No fue posible cargar los cursos."
+      );
+
+    }
+
+
+    // ===================================================
+    // OBTENER INASISTENCIAS
+    // ===================================================
+
+    try {
+
+      const respuestaInasistencias =
+        await obtenerInasistencias();
+
+      console.log(
+        "INASISTENCIAS RECIBIDAS:",
+        respuestaInasistencias
+      );
+
+
+      let inasistenciasProcesadas = [];
+
+
+      if (Array.isArray(respuestaInasistencias)) {
+
+        inasistenciasProcesadas =
+          respuestaInasistencias;
+
+      } else if (
+        respuestaInasistencias &&
+        Array.isArray(
+          respuestaInasistencias.alertas
+        )
+      ) {
+
+        inasistenciasProcesadas =
+          respuestaInasistencias.alertas;
+
+      } else if (
+        respuestaInasistencias &&
+        Array.isArray(
+          respuestaInasistencias.asistencias
+        )
+      ) {
+
+        inasistenciasProcesadas =
+          respuestaInasistencias.asistencias;
+
+      } else if (
+        respuestaInasistencias &&
+        Array.isArray(
+          respuestaInasistencias.data
+        )
+      ) {
+
+        inasistenciasProcesadas =
+          respuestaInasistencias.data;
+
+      }
+
+
+      console.log(
+        "INASISTENCIAS PROCESADAS:",
+        inasistenciasProcesadas
+      );
+
+
+      setInasistencias(
+        inasistenciasProcesadas
+      );
+
+    } catch (error) {
+
+      console.error(
+        "ERROR AL CARGAR INASISTENCIAS:",
+        error
+      );
+
+      // Importante:
+      // No borramos los cursos si falla
+      // la consulta de inasistencias.
+
+      setInasistencias([]);
+
+    }
+
+
+    setCargando(false);
 
   }
 
-  async function eliminar(id) {
 
-    if (!window.confirm("¿Eliminar la inasistencia?")) return;
+  // =====================================================
+  // OBTENER ID DEL CURSO
+  // =====================================================
 
-    await eliminarInasistencia(id);
+  function obtenerIdCurso(curso) {
 
-    cargarDatos();
+    return (
+      curso.id_curso ??
+      curso.id ??
+      curso.codigo ??
+      curso.nombre_curso ??
+      ""
+    );
 
   }
 
-  const lista = inasistencias.filter(
-    (i) => i.curso === cursoSeleccionado
-  );
+
+  // =====================================================
+  // OBTENER NOMBRE DEL CURSO
+  // =====================================================
+
+  function obtenerNombreCurso(curso) {
+
+    return (
+      curso.nombre_curso ??
+      curso.nombre ??
+      curso.descripcion ??
+      `Curso ${obtenerIdCurso(curso)}`
+    );
+
+  }
+
+
+  // =====================================================
+  // COMPROBAR SI UNA INASISTENCIA PERTENECE AL CURSO
+  // =====================================================
+
+  function perteneceAlCurso(
+    inasistencia,
+    cursoSeleccionado
+  ) {
+
+    if (!cursoSeleccionado) {
+      return false;
+    }
+
+
+    /*
+    -----------------------------------------------------
+    El backend actualmente devuelve algo como:
+
+    curso: "601, 602"
+
+    El selector puede tener:
+
+    cursoSeleccionado: "601"
+
+    Entonces debemos separar los cursos.
+    -----------------------------------------------------
+    */
+
+    const curso =
+      inasistencia.curso ??
+      inasistencia.nombre_curso ??
+      inasistencia.id_curso ??
+      inasistencia.id_asignatura_curso ??
+      "";
+
+
+    const cursosDeLaInasistencia =
+      String(curso)
+        .split(",")
+        .map((valor) =>
+          valor.trim().toLowerCase()
+        )
+        .filter(Boolean);
+
+
+    const seleccionado =
+      String(cursoSeleccionado)
+        .trim()
+        .toLowerCase();
+
+
+    /*
+    -----------------------------------------------------
+    Comparación directa
+    -----------------------------------------------------
+    */
+
+    if (
+      cursosDeLaInasistencia.includes(
+        seleccionado
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    /*
+    -----------------------------------------------------
+    Comparar también por nombre del curso
+    -----------------------------------------------------
+    */
+
+    const cursoSeleccionadoObjeto =
+      cursos.find(
+        (cursoActual) =>
+          String(
+            obtenerIdCurso(cursoActual)
+          ) ===
+          String(cursoSeleccionado)
+      );
+
+
+    if (cursoSeleccionadoObjeto) {
+
+      const nombre =
+        obtenerNombreCurso(
+          cursoSeleccionadoObjeto
+        )
+          .trim()
+          .toLowerCase();
+
+
+      if (
+        cursosDeLaInasistencia.includes(
+          nombre
+        )
+      ) {
+
+        return true;
+
+      }
+
+    }
+
+
+    return false;
+
+  }
+
+
+  // =====================================================
+  // FILTRAR INASISTENCIAS
+  // =====================================================
+
+  const lista =
+    inasistencias.filter(
+      (inasistencia) =>
+        perteneceAlCurso(
+          inasistencia,
+          cursoSeleccionado
+        )
+    );
+
+
+  // =====================================================
+  // RENDER
+  // =====================================================
 
   return (
+
     <>
+
+      {/* =================================================
+          ERROR
+      ================================================= */}
+
+      {error && (
+
+        <div className="alert alert-danger">
+
+          <i className="bi bi-exclamation-triangle-fill me-2"></i>
+
+          {error}
+
+        </div>
+
+      )}
+
+
+      {/* =================================================
+          CARD DE CURSOS
+      ================================================= */}
 
       <div className="card shadow mb-4">
 
         <div className="card-header bg-primary text-white">
 
           <h5 className="mb-0">
-
             Cursos
-
           </h5>
 
         </div>
 
+
         <div className="card-body">
 
-          <select
-            className="form-select"
-            value={cursoSeleccionado}
-            onChange={(e) => setCursoSeleccionado(e.target.value)}
-          >
+          {cargando ? (
 
-            <option value="">Seleccione un curso</option>
+            <div className="text-center py-3">
 
-            {cursos.map((c) => (
+              <div
+                className="spinner-border text-primary"
+                role="status"
+              >
+              </div>
 
-              <option key={c.id} value={c.nombre}>
+              <p className="mt-2 mb-0">
+                Cargando cursos...
+              </p>
 
-                {c.nombre}
+            </div>
 
+          ) : (
+
+            <select
+              className="form-select"
+              value={cursoSeleccionado}
+              onChange={(e) =>
+                setCursoSeleccionado(
+                  e.target.value
+                )
+              }
+            >
+
+              <option value="">
+                Seleccione un curso
               </option>
 
-            ))}
 
-          </select>
+              {cursos.map((curso) => {
+
+                const idCurso =
+                  obtenerIdCurso(curso);
+
+                const nombreCurso =
+                  obtenerNombreCurso(curso);
+
+
+                return (
+
+                  <option
+                    key={idCurso}
+                    value={idCurso}
+                  >
+
+                    {nombreCurso}
+
+                  </option>
+
+                );
+
+              })}
+
+            </select>
+
+          )}
+
+
+          {!cargando &&
+            cursos.length === 0 &&
+            !error && (
+
+              <div className="alert alert-warning mt-3 mb-0">
+
+                No hay cursos registrados.
+
+              </div>
+
+            )}
 
         </div>
 
       </div>
+
+
+      {/* =================================================
+          INASISTENCIAS DEL CURSO
+      ================================================= */}
 
       {cursoSeleccionado && (
 
@@ -86,90 +482,225 @@ function CursosTable() {
 
           <div className="card-header bg-success text-white">
 
-            Inasistencias del curso
+            <div className="d-flex justify-content-between align-items-center">
+
+              <span>
+                Inasistencias del curso
+              </span>
+
+              <span className="badge bg-light text-success">
+
+                {lista.length}
+
+              </span>
+
+            </div>
 
           </div>
 
+
           <div className="card-body">
 
-            <table className="table table-hover">
+            {lista.length === 0 ? (
 
-              <thead>
+              <div className="alert alert-info mb-0">
 
-                <tr>
+                No hay inasistencias registradas
+                para este curso.
 
-                  <th>Estudiante</th>
+              </div>
 
-                  <th>Materia</th>
+            ) : (
 
-                  <th>Fecha</th>
+              <div className="table-responsive">
 
-                  <th>Justificada</th>
+                <table className="table table-hover align-middle">
 
-                  <th></th>
+                  <thead className="table-light">
 
-                </tr>
+                    <tr>
 
-              </thead>
+                      <th>
+                        Documento
+                      </th>
 
-              <tbody>
+                      <th>
+                        Estudiante
+                      </th>
 
-                {lista.map((i) => (
+                      <th>
+                        Curso
+                      </th>
 
-                  <tr key={i.id}>
+                      <th className="text-center">
+                        Inasistencias
+                      </th>
 
-                    <td>{i.estudiante}</td>
+                      <th className="text-center">
+                        Tardanzas
+                      </th>
 
-                    <td>{i.materia}</td>
+                      <th>
+                        Estado
+                      </th>
 
-                    <td>{i.fecha}</td>
+                    </tr>
 
-                    <td>
+                  </thead>
 
-                      {i.justificada ? (
 
-                        <span className="badge bg-success">
+                  <tbody>
 
-                          Sí
+                    {lista.map(
+                      (inasistencia) => {
 
-                        </span>
+                        const id =
+                          inasistencia.id_estudiante ??
+                          inasistencia.id ??
+                          Math.random();
 
-                      ) : (
 
-                        <span className="badge bg-danger">
+                        const nombre =
+                          inasistencia.estudiante ??
+                          inasistencia.nombre_estudiante ??
+                          "Estudiante";
 
-                          No
 
-                        </span>
+                        const documento =
+                          inasistencia.documento ??
+                          inasistencia.numero_documento ??
+                          "Sin documento";
 
-                      )}
 
-                    </td>
+                        const cantidad =
+                          Number(
+                            inasistencia.inasistencias ??
+                            0
+                          );
 
-                    <td>
 
-                      {!i.justificada && (
+                        const tardanzas =
+                          Number(
+                            inasistencia.tardanzas ??
+                            0
+                          );
 
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => eliminar(i.id)}
-                        >
 
-                          Eliminar
+                        const estado =
+                          inasistencia.estado ??
+                          "Seguimiento";
 
-                        </button>
 
-                      )}
+                        return (
 
-                    </td>
+                          <tr key={id}>
 
-                  </tr>
+                            {/* DOCUMENTO */}
 
-                ))}
+                            <td>
 
-              </tbody>
+                              {documento}
 
-            </table>
+                            </td>
+
+
+                            {/* ESTUDIANTE */}
+
+                            <td>
+
+                              <strong>
+
+                                {nombre}
+
+                              </strong>
+
+                            </td>
+
+
+                            {/* CURSO */}
+
+                            <td>
+
+                              <span className="badge bg-info text-dark">
+
+                                {
+                                  inasistencia.curso ??
+                                  "Sin curso"
+                                }
+
+                              </span>
+
+                            </td>
+
+
+                            {/* INASISTENCIAS */}
+
+                            <td className="text-center">
+
+                              <span
+                                className={
+                                  cantidad >= 10
+                                    ? "badge bg-danger fs-6"
+                                    : cantidad >= 5
+                                      ? "badge bg-warning text-dark fs-6"
+                                      : "badge bg-secondary fs-6"
+                                }
+                              >
+
+                                {cantidad}
+
+                              </span>
+
+                            </td>
+
+
+                            {/* TARDANZAS */}
+
+                            <td className="text-center">
+
+                              <span className="badge bg-secondary fs-6">
+
+                                {tardanzas}
+
+                              </span>
+
+                            </td>
+
+
+                            {/* ESTADO */}
+
+                            <td>
+
+                              <span
+                                className={
+                                  estado === "Pérdida"
+                                    ? "badge bg-danger"
+                                    : estado === "Exceso"
+                                      ? "badge bg-warning text-dark"
+                                      : "badge bg-secondary"
+                                }
+                              >
+
+                                {estado}
+
+                              </span>
+
+                            </td>
+
+                          </tr>
+
+                        );
+
+                      }
+                    )}
+
+                  </tbody>
+
+                </table>
+
+              </div>
+
+            )}
 
           </div>
 
@@ -182,5 +713,6 @@ function CursosTable() {
   );
 
 }
+
 
 export default CursosTable;

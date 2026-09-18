@@ -1,145 +1,380 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Layout from "../../components/Layout";
 import AlertasTable from "../../components/AlertasTable";
 import { obtenerInasistencias } from "../../services/api";
 
 function Alertas() {
-  const [estadisticas, setEstadisticas] = useState({
-    total: 0,
-    exceso: 0,
-    perdida: 0,
-  });
 
-  const [cargando, setCargando] = useState(true);
+    const [alertas, setAlertas] = useState([]);
+    const [cargando, setCargando] = useState(true);
+    const [error, setError] = useState("");
 
-  useEffect(() => {
-    cargarEstadisticas();
-  }, []);
 
-  const cargarEstadisticas = async () => {
-    try {
-      setCargando(true);
+    const cargarAlertas = async () => {
 
-      const datos = await obtenerInasistencias();
+        try {
 
-      console.log("Datos de inasistencias:", datos);
+            setCargando(true);
+            setError("");
 
-      if (!Array.isArray(datos)) {
-        return;
-      }
+            const respuesta =
+                await obtenerInasistencias();
 
-      const estudiantes = {};
+            console.log(
+                "RESPUESTA DE ALERTAS:",
+                respuesta
+            );
 
-      datos.forEach((inasistencia) => {
-        const idEstudiante =
-          inasistencia.id_estudiante ||
-          inasistencia.id ||
-          inasistencia.id_estudiante_curso;
 
-        if (!idEstudiante) {
-          return;
+            let datos = [];
+
+
+            /*
+            ============================================
+            LA API PUEDE DEVOLVER UN ARRAY DIRECTAMENTE
+            ============================================
+            */
+
+            if (Array.isArray(respuesta)) {
+
+                datos = respuesta;
+
+            }
+
+
+            /*
+            ============================================
+            POR SI LA API DEVUELVE { alertas: [...] }
+            ============================================
+            */
+
+            else if (
+                respuesta &&
+                Array.isArray(respuesta.alertas)
+            ) {
+
+                datos = respuesta.alertas;
+
+            }
+
+
+            /*
+            ============================================
+            POR SI DEVUELVE { asistencias: [...] }
+            ============================================
+            */
+
+            else if (
+                respuesta &&
+                Array.isArray(respuesta.asistencias)
+            ) {
+
+                datos = respuesta.asistencias;
+
+            }
+
+
+            /*
+            ============================================
+            NORMALIZAR LOS DATOS
+            ============================================
+            */
+
+            const datosNormalizados =
+                datos.map((alerta) => {
+
+                    const inasistencias =
+                        Number(
+                            alerta.inasistencias
+                        ) || 0;
+
+
+                    let estado =
+                        alerta.estado;
+
+
+                    /*
+                    Si el backend no manda estado,
+                    lo calculamos aquí.
+                    */
+
+                    if (!estado) {
+
+                        if (inasistencias >= 10) {
+
+                            estado = "Pérdida";
+
+                        } else if (
+                            inasistencias >= 5
+                        ) {
+
+                            estado = "Exceso";
+
+                        } else {
+
+                            estado = "Normal";
+                        }
+                    }
+
+
+                    return {
+
+                        id_estudiante:
+                            alerta.id_estudiante,
+
+                        estudiante:
+                            alerta.estudiante ||
+                            "Sin nombre",
+
+                        documento:
+                            alerta.documento ||
+                            alerta.numero_documento ||
+                            "Sin documento",
+
+                        curso:
+                            alerta.curso ||
+                            "Sin curso",
+
+                        inasistencias:
+                            inasistencias,
+
+                        tardanzas:
+                            Number(
+                                alerta.tardanzas
+                            ) || 0,
+
+                        total_registros:
+                            Number(
+                                alerta.total_registros
+                            ) || 0,
+
+                        estado:
+                            estado
+                    };
+
+                });
+
+
+            /*
+            ============================================
+            MOSTRAR DATOS EN CONSOLA
+            ============================================
+            */
+
+            console.log(
+                "ALERTAS NORMALIZADAS:",
+                datosNormalizados
+            );
+
+
+            setAlertas(
+                datosNormalizados
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Error al cargar las alertas:",
+                error
+            );
+
+            setError(
+                "No fue posible cargar las alertas."
+            );
+
+            setAlertas([]);
+
+        } finally {
+
+            setCargando(false);
         }
+    };
 
-        if (!estudiantes[idEstudiante]) {
-          estudiantes[idEstudiante] = 0;
-        }
 
-        estudiantes[idEstudiante]++;
-      });
+    useEffect(() => {
 
-      const cantidades = Object.values(estudiantes);
+        cargarAlertas();
 
-      const exceso = cantidades.filter(
-        (cantidad) => cantidad >= 5 && cantidad < 10
-      ).length;
+    }, []);
 
-      const perdida = cantidades.filter(
-        (cantidad) => cantidad >= 10
-      ).length;
 
-      setEstadisticas({
-        total: exceso + perdida,
-        exceso,
-        perdida,
-      });
-    } catch (error) {
-      console.error(
-        "Error al cargar las estadísticas de alertas:",
-        error
-      );
-    } finally {
-      setCargando(false);
-    }
-  };
+    /*
+    ================================================
+    CONTADORES
+    ================================================
+    */
 
-  return (
-    <Layout titulo="Alertas de Inasistencia">
+    const totalAlertas =
+        alertas.length;
 
-      <div className="row mb-4">
 
-        {/* TOTAL ALERTAS */}
-        <div className="col-md-4 mb-3">
-          <div className="card border-primary shadow-sm h-100">
-            <div className="card-body text-center">
+    const excesoInasistencias =
+        alertas.filter((alerta) => {
 
-              <i className="bi bi-bell-fill text-primary fs-1"></i>
+            const estado =
+                String(
+                    alerta.estado || ""
+                )
+                .toLowerCase()
+                .trim();
 
-              <h3 className="mt-3">
-                {cargando ? "..." : estadisticas.total}
-              </h3>
+            return (
+                estado === "exceso"
+            );
 
-              <p className="mb-0 fw-bold">
-                Total Alertas
-              </p>
+        }).length;
+
+
+    const perdidaMateria =
+        alertas.filter((alerta) => {
+
+            const estado =
+                String(
+                    alerta.estado || ""
+                )
+                .toLowerCase()
+                .trim();
+
+            return (
+                estado === "pérdida" ||
+                estado === "perdida"
+            );
+
+        }).length;
+
+
+    return (
+
+        <Layout titulo="Alertas de Inasistencia">
+
+            {/* =========================================
+                TARJETAS DE RESUMEN
+            ========================================= */}
+
+            <div className="row mb-4">
+
+                {/* TOTAL */}
+
+                <div className="col-md-4">
+
+                    <div className="card border-primary shadow-sm">
+
+                        <div className="card-body text-center">
+
+                            <i className="bi bi-bell-fill text-primary fs-1"></i>
+
+                            <h3 className="mt-3">
+
+                                {cargando
+                                    ? "..."
+                                    : totalAlertas}
+
+                            </h3>
+
+                            <p className="mb-0 fw-bold">
+
+                                Total Alertas
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                {/* EXCESO */}
+
+                <div className="col-md-4">
+
+                    <div className="card border-warning shadow-sm">
+
+                        <div className="card-body text-center">
+
+                            <i className="bi bi-exclamation-circle-fill text-warning fs-1"></i>
+
+                            <h3 className="mt-3">
+
+                                {cargando
+                                    ? "..."
+                                    : excesoInasistencias}
+
+                            </h3>
+
+                            <p className="mb-0 fw-bold">
+
+                                Exceso de Inasistencias
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                {/* PÉRDIDA */}
+
+                <div className="col-md-4">
+
+                    <div className="card border-danger shadow-sm">
+
+                        <div className="card-body text-center">
+
+                            <i className="bi bi-x-circle-fill text-danger fs-1"></i>
+
+                            <h3 className="mt-3">
+
+                                {cargando
+                                    ? "..."
+                                    : perdidaMateria}
+
+                            </h3>
+
+                            <p className="mb-0 fw-bold">
+
+                                Pérdida de Materia
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </div>
 
             </div>
-          </div>
-        </div>
 
-        {/* EXCESO */}
-        <div className="col-md-4 mb-3">
-          <div className="card border-warning shadow-sm h-100">
-            <div className="card-body text-center">
 
-              <i className="bi bi-exclamation-circle-fill text-warning fs-1"></i>
+            {/* ERROR */}
 
-              <h3 className="mt-3">
-                {cargando ? "..." : estadisticas.exceso}
-              </h3>
+            {error && (
 
-              <p className="mb-0 fw-bold">
-                Exceso de Inasistencias
-              </p>
+                <div className="alert alert-danger">
 
-            </div>
-          </div>
-        </div>
+                    <i className="bi bi-exclamation-triangle-fill me-2"></i>
 
-        {/* PÉRDIDA */}
-        <div className="col-md-4 mb-3">
-          <div className="card border-danger shadow-sm h-100">
-            <div className="card-body text-center">
+                    {error}
 
-              <i className="bi bi-x-circle-fill text-danger fs-1"></i>
+                </div>
 
-              <h3 className="mt-3">
-                {cargando ? "..." : estadisticas.perdida}
-              </h3>
+            )}
 
-              <p className="mb-0 fw-bold">
-                Pérdida de Materia
-              </p>
 
-            </div>
-          </div>
-        </div>
+            {/* TABLA */}
 
-      </div>
+            <AlertasTable
+                alertas={alertas}
+                recargar={cargarAlertas}
+                cargando={cargando}
+            />
 
-      <AlertasTable />
-
-    </Layout>
-  );
+        </Layout>
+    );
 }
+
 
 export default Alertas;

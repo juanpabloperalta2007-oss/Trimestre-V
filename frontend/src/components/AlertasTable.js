@@ -1,244 +1,398 @@
-import React, { useEffect, useState } from "react";
-import { obtenerInasistencias } from "../services/api";
+import React from "react";
 
-function AlertasTable() {
-  const [alertas, setAlertas] = useState([]);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState("");
+function AlertasTable({
+    alertas = [],
+    recargar,
+    cargando = false
+}) {
 
-  useEffect(() => {
-    cargarAlertas();
-  }, []);
 
-  const cargarAlertas = async () => {
-    try {
-      setCargando(true);
-      setError("");
+    /*
+    ========================================================
+    SI ESTÁ CARGANDO
+    ========================================================
+    */
 
-      const datos = await obtenerInasistencias();
+    if (cargando) {
 
-      console.log("INASISTENCIAS:", datos);
+        return (
 
-      if (!Array.isArray(datos)) {
-        throw new Error("El servidor no devolvió una lista.");
-      }
+            <div className="card shadow-sm">
 
-      const agrupadas = {};
+                <div
+                    className="card-header text-white"
+                    style={{
+                        backgroundColor: "#0d6efd"
+                    }}
+                >
 
-      datos.forEach((item) => {
-        const idEstudiante =
-          item.id_estudiante ||
-          item.id_estudiante_curso ||
-          item.id;
+                    <h5 className="mb-0">
 
-        if (!idEstudiante) {
-          return;
-        }
+                        Alertas de Inasistencia
 
-        if (!agrupadas[idEstudiante]) {
-          const nombre =
-            item.estudiante ||
-            item.nombre_estudiante ||
-            `${item.primer_nombre || ""} ${
-              item.segundo_nombre || ""
-            } ${item.primer_apellido || ""} ${
-              item.segundo_apellido || ""
-            }`.replace(/\s+/g, " ").trim();
+                    </h5>
 
-          agrupadas[idEstudiante] = {
-            id: idEstudiante,
-            estudiante: nombre || "Estudiante",
+                </div>
 
-            curso:
-              item.curso ||
-              item.nombre_curso ||
-              item.codigo_curso ||
-              "Sin curso",
+                <div className="card-body text-center py-5">
 
-            inasistencias: 0
-          };
-        }
+                    <div
+                        className="spinner-border text-primary"
+                        role="status"
+                    >
+                    </div>
 
-        agrupadas[idEstudiante].inasistencias++;
-      });
+                    <p className="mt-3 mb-0 text-muted">
 
-      const resultado = Object.values(agrupadas);
+                        Cargando alertas...
 
-      const alertasGeneradas = resultado
-        .filter((item) => item.inasistencias >= 5)
-        .map((item) => ({
-          ...item,
-          estado:
-            item.inasistencias >= 10
-              ? "Pérdida"
-              : "Exceso"
-        }));
+                    </p>
 
-      setAlertas(alertasGeneradas);
+                </div>
 
-    } catch (error) {
-      console.error("ERROR ALERTAS:", error);
+            </div>
 
-      setError(
-        error.response?.data?.error ||
-        error.message ||
-        "No fue posible cargar las alertas."
-      );
-    } finally {
-      setCargando(false);
+        );
+
     }
-  };
 
-  const enviarAviso = (estudiante) => {
-    alert(
-      `Aviso enviado al acudiente de ${estudiante}`
-    );
-  };
 
-  if (cargando) {
+    /*
+    ========================================================
+    SI NO HAY ALERTAS
+    ========================================================
+    */
+
+    if (!alertas || alertas.length === 0) {
+
+        return (
+
+            <div className="card shadow-sm">
+
+                <div
+                    className="card-header text-white"
+                    style={{
+                        backgroundColor: "#0d6efd"
+                    }}
+                >
+
+                    <h5 className="mb-0">
+
+                        Alertas de Inasistencia
+
+                    </h5>
+
+                </div>
+
+
+                <div className="card-body text-center py-5">
+
+                    <i
+                        className="bi bi-check-circle-fill text-success"
+                        style={{
+                            fontSize: "45px"
+                        }}
+                    ></i>
+
+
+                    <h5 className="mt-3 mb-2">
+
+                        No hay alertas
+
+                    </h5>
+
+
+                    <p className="text-muted mb-0">
+
+                        Actualmente no hay estudiantes
+                        que superen el límite de inasistencias.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+        );
+
+    }
+
+
+    /*
+    ========================================================
+    FUNCIÓN PARA EL ESTADO
+    ========================================================
+    */
+
+    const obtenerClaseEstado = (estado) => {
+
+        const valor =
+            String(estado)
+                .toLowerCase()
+                .trim();
+
+
+        if (
+            valor === "pérdida" ||
+            valor === "perdida"
+        ) {
+
+            return "badge bg-danger";
+
+        }
+
+
+        if (
+            valor === "exceso"
+        ) {
+
+            return "badge bg-warning text-dark";
+
+        }
+
+
+        return "badge bg-secondary";
+
+    };
+
+
+    /*
+    ========================================================
+    VISTA
+    ========================================================
+    */
+
     return (
-      <div className="card shadow-sm">
-        <div className="card-body text-center p-5">
-          <div
-            className="spinner-border text-primary"
-            role="status"
-          ></div>
 
-          <p className="mt-3">
-            Cargando alertas...
-          </p>
+        <div className="card shadow-sm">
+
+            {/* ============================================
+                ENCABEZADO
+            ============================================ */}
+
+            <div
+                className="card-header text-white"
+                style={{
+                    backgroundColor: "#0d6efd"
+                }}
+            >
+
+                <div className="d-flex justify-content-between align-items-center">
+
+                    <h5 className="mb-0">
+
+                        Alertas de Inasistencia
+
+                    </h5>
+
+
+                    {recargar && (
+
+                        <button
+                            type="button"
+                            className="btn btn-light btn-sm"
+                            onClick={recargar}
+                        >
+
+                            <i className="bi bi-arrow-clockwise me-1"></i>
+
+                            Actualizar
+
+                        </button>
+
+                    )}
+
+                </div>
+
+            </div>
+
+
+            {/* ============================================
+                TABLA
+            ============================================ */}
+
+            <div className="table-responsive">
+
+                <table className="table table-hover table-bordered mb-0">
+
+                    <thead className="table-light">
+
+                        <tr>
+
+                            <th>
+                                Estudiante
+                            </th>
+
+                            <th>
+                                Documento
+                            </th>
+
+                            <th>
+                                Curso
+                            </th>
+
+                            <th className="text-center">
+                                Inasistencias
+                            </th>
+
+                            <th className="text-center">
+                                Tardanzas
+                            </th>
+
+                            <th className="text-center">
+                                Total registros
+                            </th>
+
+                            <th className="text-center">
+                                Estado
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        {alertas.map(
+                            (alerta) => {
+
+                                return (
+
+                                    <tr
+                                        key={
+                                            alerta.id_estudiante
+                                        }
+                                    >
+
+                                        {/* ESTUDIANTE */}
+
+                                        <td>
+
+                                            <strong>
+
+                                                {alerta.estudiante}
+
+                                            </strong>
+
+                                        </td>
+
+
+                                        {/* DOCUMENTO */}
+
+                                        <td>
+
+                                            {alerta.documento}
+
+                                        </td>
+
+
+                                        {/* CURSO */}
+
+                                        <td>
+
+                                            {alerta.curso}
+
+                                        </td>
+
+
+                                        {/* INASISTENCIAS */}
+
+                                        <td className="text-center">
+
+                                            <span
+                                                className={
+                                                    alerta.inasistencias >= 10
+                                                        ? "fw-bold text-danger"
+                                                        : "fw-bold text-warning"
+                                                }
+                                            >
+
+                                                {
+                                                    alerta.inasistencias
+                                                }
+
+                                            </span>
+
+                                        </td>
+
+
+                                        {/* TARDANZAS */}
+
+                                        <td className="text-center">
+
+                                            {
+                                                alerta.tardanzas
+                                            }
+
+                                        </td>
+
+
+                                        {/* TOTAL */}
+
+                                        <td className="text-center">
+
+                                            {
+                                                alerta.total_registros
+                                            }
+
+                                        </td>
+
+
+                                        {/* ESTADO */}
+
+                                        <td className="text-center">
+
+                                            <span
+                                                className={
+                                                    obtenerClaseEstado(
+                                                        alerta.estado
+                                                    )
+                                                }
+                                            >
+
+                                                {
+                                                    alerta.estado
+                                                }
+
+                                            </span>
+
+                                        </td>
+
+                                    </tr>
+
+                                );
+
+                            }
+                        )}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+
+            {/* ============================================
+                PIE
+            ============================================ */}
+
+            <div className="card-footer text-muted">
+
+                Total de estudiantes con alerta:{" "}
+
+                <strong>
+
+                    {alertas.length}
+
+                </strong>
+
+            </div>
+
         </div>
-      </div>
+
     );
-  }
 
-  if (error) {
-    return (
-      <div className="card shadow-sm">
-        <div className="card-header bg-primary text-white">
-          <h5 className="mb-0">
-            <i className="bi bi-exclamation-triangle-fill me-2"></i>
-            Alertas de Inasistencia
-          </h5>
-        </div>
-
-        <div className="card-body">
-          <div className="alert alert-danger">
-            {error}
-          </div>
-
-          <button
-            className="btn btn-primary"
-            onClick={cargarAlertas}
-          >
-            Intentar nuevamente
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="card shadow-sm">
-
-      <div className="card-header bg-primary text-white">
-        <h5 className="mb-0">
-          <i className="bi bi-exclamation-triangle-fill me-2"></i>
-          Alertas de Inasistencia
-        </h5>
-      </div>
-
-      <div className="card-body">
-
-        {alertas.length === 0 ? (
-
-          <div className="text-center py-5">
-
-            <i className="bi bi-check-circle-fill text-success fs-1"></i>
-
-            <h5 className="mt-3">
-              No hay alertas
-            </h5>
-
-            <p className="text-muted">
-              Actualmente no hay estudiantes con exceso de inasistencias.
-            </p>
-
-          </div>
-
-        ) : (
-
-          <div className="table-responsive">
-
-            <table className="table table-hover align-middle">
-
-              <thead className="table-light">
-                <tr>
-                  <th>Estudiante</th>
-                  <th>Curso</th>
-                  <th>Inasistencias</th>
-                  <th>Estado</th>
-                  <th>Acción</th>
-                </tr>
-              </thead>
-
-              <tbody>
-
-                {alertas.map((alerta) => (
-
-                  <tr key={alerta.id}>
-
-                    <td>{alerta.estudiante}</td>
-
-                    <td>{alerta.curso}</td>
-
-                    <td>
-                      <strong>
-                        {alerta.inasistencias}
-                      </strong>
-                    </td>
-
-                    <td>
-                      {alerta.estado === "Exceso" ? (
-                        <span className="badge bg-warning text-dark">
-                          <i className="bi bi-exclamation-triangle me-1"></i>
-                          Exceso
-                        </span>
-                      ) : (
-                        <span className="badge bg-danger">
-                          <i className="bi bi-x-circle me-1"></i>
-                          Pérdida
-                        </span>
-                      )}
-                    </td>
-
-                    <td>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        onClick={() =>
-                          enviarAviso(alerta.estudiante)
-                        }
-                      >
-                        <i className="bi bi-send-fill me-1"></i>
-                        Enviar aviso
-                      </button>
-                    </td>
-
-                  </tr>
-
-                ))}
-
-              </tbody>
-
-            </table>
-
-          </div>
-
-        )}
-
-      </div>
-    </div>
-  );
 }
 
 export default AlertasTable;

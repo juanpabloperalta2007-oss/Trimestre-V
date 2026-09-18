@@ -1,125 +1,360 @@
 import { useEffect, useState } from "react";
+
 import {
-  obtenerExcusas,
-  aprobarExcusa,
-  rechazarExcusa,
+    obtenerExcusas,
+    aprobarExcusa,
+    rechazarExcusa
 } from "../services/api";
+
 
 function ExcusasTable() {
 
-  const [datos, setDatos] = useState([]);
+    const [datos, setDatos] =
+        useState([]);
 
-  useEffect(() => {
-    cargarDatos();
-  }, []);
+    const [cargando, setCargando] =
+        useState(true);
 
-  async function cargarDatos() {
-    const respuesta = await obtenerExcusas();
-    setDatos(respuesta);
-  }
+    const [error, setError] =
+        useState("");
 
-  async function aprobar(id) {
-    await aprobarExcusa(id);
-    cargarDatos();
-  }
 
-  async function rechazar(id) {
-    await rechazarExcusa(id);
-    cargarDatos();
-  }
+    /*
+    ========================================================
+    CARGAR EXCUSAS
+    ========================================================
+    */
 
-  return (
-    <div className="card shadow">
+    useEffect(() => {
 
-      <div className="card-header bg-primary text-white">
-        <h5 className="mb-0">
-          <i className="bi bi-folder-check me-2"></i>
-          Excusas Registradas
-        </h5>
-      </div>
+        cargarDatos();
 
-      <div className="card-body">
+    }, []);
 
-        <table className="table table-hover">
 
-          <thead className="table-light">
+    async function cargarDatos() {
 
-            <tr>
-              <th>Estudiante</th>
-              <th>Fecha</th>
-              <th>Motivo</th>
-              <th>Estado</th>
-              <th>Acciones</th>
-            </tr>
+        try {
 
-          </thead>
+            setCargando(true);
 
-          <tbody>
+            setError("");
 
-            {datos.map((e) => (
+            const respuesta =
+                await obtenerExcusas();
 
-              <tr key={e.id}>
 
-                <td>{e.estudiante}</td>
+            if (Array.isArray(respuesta)) {
 
-                <td>{e.fecha}</td>
+                setDatos(respuesta);
 
-                <td>{e.motivo}</td>
+            } else {
 
-                <td>
+                setDatos([]);
+            }
 
-                  {e.estado === "Pendiente" && (
-                    <span className="badge bg-warning text-dark">
-                      Pendiente
-                    </span>
-                  )}
 
-                  {e.estado === "Aprobada" && (
-                    <span className="badge bg-success">
-                      Aprobada
-                    </span>
-                  )}
+        } catch (error) {
 
-                  {e.estado === "Rechazada" && (
-                    <span className="badge bg-danger">
-                      Rechazada
-                    </span>
-                  )}
+            console.error(
+                "Error al cargar excusas:",
+                error
+            );
 
-                </td>
+            setError(
+                "No fue posible cargar las excusas."
+            );
 
-                <td>
+            setDatos([]);
 
-                  <button
-                    className="btn btn-success btn-sm me-2"
-                    disabled={e.estado !== "Pendiente"}
-                    onClick={() => aprobar(e.id)}
-                  >
-                    Aprobar
-                  </button>
+        } finally {
 
-                  <button
-                    className="btn btn-danger btn-sm"
-                    disabled={e.estado !== "Pendiente"}
-                    onClick={() => rechazar(e.id)}
-                  >
-                    Rechazar
-                  </button>
+            setCargando(false);
+        }
+    }
 
-                </td>
 
-              </tr>
+    /*
+    ========================================================
+    APROBAR
+    ========================================================
+    */
 
-            ))}
+    async function aprobar(id) {
 
-          </tbody>
+        try {
 
-        </table>
+            await aprobarExcusa(id);
 
-      </div>
+            await cargarDatos();
 
-    </div>
-  );
+        } catch (error) {
+
+            console.error(
+                "Error al aprobar excusa:",
+                error
+            );
+
+            setError(
+                "No fue posible aprobar la excusa."
+            );
+        }
+    }
+
+
+    /*
+    ========================================================
+    RECHAZAR
+    ========================================================
+    */
+
+    async function rechazar(id) {
+
+        try {
+
+            await rechazarExcusa(id);
+
+            await cargarDatos();
+
+        } catch (error) {
+
+            console.error(
+                "Error al rechazar excusa:",
+                error
+            );
+
+            setError(
+                "No fue posible rechazar la excusa."
+            );
+        }
+    }
+
+
+    /*
+    ========================================================
+    CARGANDO
+    ========================================================
+    */
+
+    if (cargando) {
+
+        return (
+
+            <div className="text-center py-4">
+
+                <div
+                    className="spinner-border text-primary"
+                    role="status"
+                >
+                </div>
+
+                <p className="mt-2 text-muted">
+                    Cargando excusas...
+                </p>
+
+            </div>
+        );
+    }
+
+
+    /*
+    ========================================================
+    INTERFAZ
+    ========================================================
+    */
+
+    return (
+
+        <div className="card shadow">
+
+            <div className="card-header bg-primary text-white">
+
+                <h5 className="mb-0">
+
+                    <i className="bi bi-folder-check me-2"></i>
+
+                    Excusas Registradas
+
+                </h5>
+
+            </div>
+
+
+            <div className="card-body">
+
+
+                {error && (
+
+                    <div
+                        className="alert alert-danger"
+                        role="alert"
+                    >
+
+                        <i className="bi bi-exclamation-triangle-fill me-2"></i>
+
+                        {error}
+
+                    </div>
+                )}
+
+
+                {datos.length === 0 ? (
+
+                    <div
+                        className="alert alert-info mb-0"
+                    >
+
+                        <i className="bi bi-info-circle-fill me-2"></i>
+
+                        No hay excusas registradas.
+
+                    </div>
+
+                ) : (
+
+                    <div className="table-responsive">
+
+                        <table className="table table-hover align-middle">
+
+                            <thead className="table-light">
+
+                                <tr>
+
+                                    <th>
+                                        Estudiante
+                                    </th>
+
+                                    <th>
+                                        Fecha
+                                    </th>
+
+                                    <th>
+                                        Motivo
+                                    </th>
+
+                                    <th>
+                                        Estado
+                                    </th>
+
+                                    <th>
+                                        Acciones
+                                    </th>
+
+                                </tr>
+
+                            </thead>
+
+
+                            <tbody>
+
+                                {datos.map((e) => (
+
+                                    <tr key={e.id}>
+
+                                        <td>
+                                            {e.estudiante}
+                                        </td>
+
+
+                                        <td>
+                                            {e.fecha}
+                                        </td>
+
+
+                                        <td>
+                                            {e.motivo}
+                                        </td>
+
+
+                                        <td>
+
+                                            {e.estado === "Pendiente" && (
+
+                                                <span className="badge bg-warning text-dark">
+
+                                                    Pendiente
+
+                                                </span>
+                                            )}
+
+
+                                            {e.estado === "Aprobada" && (
+
+                                                <span className="badge bg-success">
+
+                                                    Aprobada
+
+                                                </span>
+                                            )}
+
+
+                                            {e.estado === "Rechazada" && (
+
+                                                <span className="badge bg-danger">
+
+                                                    Rechazada
+
+                                                </span>
+                                            )}
+
+                                        </td>
+
+
+                                        <td>
+
+                                            <button
+                                                type="button"
+                                                className="btn btn-success btn-sm me-2"
+                                                disabled={
+                                                    e.estado !== "Pendiente"
+                                                }
+                                                onClick={() =>
+                                                    aprobar(e.id)
+                                                }
+                                            >
+
+                                                <i className="bi bi-check-lg me-1"></i>
+
+                                                Aprobar
+
+                                            </button>
+
+
+                                            <button
+                                                type="button"
+                                                className="btn btn-danger btn-sm"
+                                                disabled={
+                                                    e.estado !== "Pendiente"
+                                                }
+                                                onClick={() =>
+                                                    rechazar(e.id)
+                                                }
+                                            >
+
+                                                <i className="bi bi-x-lg me-1"></i>
+
+                                                Rechazar
+
+                                            </button>
+
+                                        </td>
+
+                                    </tr>
+
+                                ))}
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+                )}
+
+            </div>
+
+        </div>
+    );
 }
+
 
 export default ExcusasTable;
