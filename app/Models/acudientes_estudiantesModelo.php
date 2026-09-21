@@ -14,7 +14,7 @@ class acudientes_estudiantesModelo extends Model
     public $incrementing = true;
     protected $keyType = 'int';
     protected $fillable=[
-        'id_acudiente_estudiantes',
+        'id_acudiente_estudiante',
         'id_acudiente',
         'id_estudiante',
         'parentesco'

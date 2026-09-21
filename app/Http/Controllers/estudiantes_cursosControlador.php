@@ -41,8 +41,7 @@ class estudiantes_cursosControlador extends Controller
             return response()->json($data, 400);
         }
 
-        $estudiantes_cursos = estudiantes_cursosModelo::create([
-            'id_estudiante_curso' => $request->id_estudiante_curso, 
+        $estudiantes_cursos = estudiantes_cursosModelo::create([ 
             'id_estudiante' => $request->id_estudiante,
             'id_curso' => $request->id_curso,
             'anio' => $request->anio

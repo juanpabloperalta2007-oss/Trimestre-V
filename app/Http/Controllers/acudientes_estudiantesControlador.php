@@ -27,7 +27,6 @@ class acudientes_estudiantesControlador extends Controller
     // permite enviar datos o crear registros
     public function store(Request $request){
         $validacion = Validator::make($request->all(), [
-            'id_acudiente_estudiante' => 'required',
             'id_acudiente' => 'required',
             'id_estudiante' => 'required',
             'parentesco' => 'required',
@@ -42,8 +41,7 @@ class acudientes_estudiantesControlador extends Controller
             return response()->json($data, 400);
         }
 
-        $cursos = cursosModelo::create([
-            'id_acudiente_estudiante' => $request->id_acudiente_estudiante, 
+        $acudientes_estudiantes = acudientes_estudiantesModelo::create([ 
             'id_acudiente' => $request->id_acudiente,
             'id_estudiante' => $request->id_estudiante,
             'parentesco' => $request->parentesco
@@ -85,7 +83,7 @@ class acudientes_estudiantesControlador extends Controller
     }
 
     // eliminar un registro
-    public function destroy($id_curso){
+    public function destroy($id_acudiente_estudiante){
         $acudientes_estudiantes = acudientes_estudiantesModelo::find($id_acudiente_estudiante);
         
         if(!$acudientes_estudiantes){
@@ -97,9 +95,9 @@ class acudientes_estudiantesControlador extends Controller
         }
         
         $acudientes_estudiantes->delete();
-        
+
         $data = [
-            'message' => 'acudiente del estudiante eliminado',
+            'message' => 'acudiente del estudiante eliminado correctamente',
             'status' => 200
         ];
         return response()->json($data, 200);
@@ -107,7 +105,7 @@ class acudientes_estudiantesControlador extends Controller
 
     // actualizar un registro
     public function update(Request $request, $id_acudiente_estudiante){
-        $acudientes_estudiantes = cursosModelo::find($id_acudiente_estudiante);
+        $acudientes_estudiantes =acudientes_estudiantesModelo::find($id_acudiente_estudiante);
        if(!$acudientes_estudiantes){
             $data = [
                 'message' => 'acudiente del estudiante no encontrado',
@@ -118,7 +116,6 @@ class acudientes_estudiantesControlador extends Controller
         
         
         $validacion = Validator::make($request->all(), [
-            'id_acudiente_estudiante' => 'required', 
             'id_acudiente' => 'required',
             'id_estudiante' => 'required',
             'parentesco' => 'required'
@@ -133,13 +130,13 @@ class acudientes_estudiantesControlador extends Controller
             return response()->json($data, 400);
         }
         
-        $acudientes_estudiantes->id_acudiente_estudiante = $request->id_acudiente_estudiante;
+    
         $acudientes_estudiantes->id_acudiente = $request->id_acudiente;
         $acudientes_estudiantes->id_estudiante = $request->id_estudiante;
         $acudientes_estudiantes->parentesco = $request->parentesco;
         
       
-        $cursos->save();
+        $acudientes_estudiantes->save();
         
         $data = [
             'message' => 'acudiente del estudiante actualizado',

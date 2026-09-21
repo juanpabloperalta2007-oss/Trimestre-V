@@ -134,7 +134,7 @@ Route::post('/login', [AuthController::class, 'login']);
     // rutas para asistencia 
     Route::get('/asistencias', [asistenciasControlador::class, 'index']);
     Route::post('/asistencias', [asistenciasControlador::class, 'store']);
-    Route::get('/asistencias/{id_asistencia}}', [asistenciasControlador::class, 'show']);
+    Route::get('/asistencias/{id_asistencia}', [asistenciasControlador::class, 'show']);
     Route::delete('/asistencias/{id_asistencia}', [asistenciasControlador::class, 'destroy']);
     Route::put('asistencias/{id_asistencia}', [asistenciasControlador::class, 'update']);
 

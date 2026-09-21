@@ -103,7 +103,7 @@ class calendario_escolarControlador extends Controller
         $calendario_escolar->delete();
         
         $data = [
-            'message' => 'calendario_escolar Eliminado',
+            'message' => 'calendario escolar eliminado',
             'status' => 200
         ];
         return response()->json($data, 200);

@@ -41,7 +41,6 @@ class coordinadores_cursosControlador extends Controller
         }
 
         $coordinadores_cursos = coordinadores_cursosModelo::create([
-            'id_coordinadores_cursos' => $request->id_coordinadores_cursos, 
             'id_coordinador' => $request->id_coordinador,
             'id_curso' => $request->id_curso,
         ]);
@@ -104,7 +103,6 @@ class coordinadores_cursosControlador extends Controller
 
     // actualizar un registro
     public function update(Request $request, $id_coordinadores_cursos){
-        // CORRECCIÓN: cargosModelo y variable con $
         $coordinadores_cursos = coordinadores_cursosModelo::find($id_coordinadores_cursos );
        if(!$coordinadores_cursos){
             $data = [
@@ -114,7 +112,7 @@ class coordinadores_cursosControlador extends Controller
             return response()->json($data, 404);
         }
         
-        // CORRECCIÓN: Validator en lugar de Validacion
+      
         $validacion = Validator::make($request->all(), [
             'id_coordinador' => 'required',
             'id_curso' => 'required'
@@ -130,11 +128,10 @@ class coordinadores_cursosControlador extends Controller
             return response()->json($data, 400);
         }
         
-        $coordinadores_cursos->id_coordinadores_cursos = $request->id_coordinadores_cursos;
-        $coordinadores_cursos->id_coordinadores_cursos = $request->id_coordinadores_cursos;
-        
-      
-        $coordinadores_cursos->save();
+         $coordinadores_cursos->id_coordinador = $request->id_coordinador;
+         $coordinadores_cursos->id_curso = $request->id_curso;
+
+         $coordinadores_cursos->save();
         
         $data = [
             'message' => 'coordinador de curso actualizado',

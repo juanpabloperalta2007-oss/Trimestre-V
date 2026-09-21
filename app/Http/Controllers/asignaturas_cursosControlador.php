@@ -56,7 +56,7 @@ class asignaturas_cursosControlador extends Controller
         }
         
         $data = [
-            'message' => 'asignatura_curso creado Correctamente',
+            'message' => 'asignatura de curso creada correctamente',
             'asignatura_curso' => $asignaturas_cursos,
             'status' => 201
         ];
@@ -88,7 +88,7 @@ class asignaturas_cursosControlador extends Controller
 
         if(!$asignaturas_cursos){
             $data = [
-                'message' => 'asignatura_curso no encontrado', 
+                'message' => 'asignatura de curso no encontrada', 
                 'status' => 404
             ];
             return response()->json($data, 404);
@@ -97,7 +97,7 @@ class asignaturas_cursosControlador extends Controller
         $asignaturas_cursos->delete();
         
         $data = [
-            'message' => 'asignatura_curso Eliminado',
+            'message' => 'asignatura de curso eliminada',
             'status' => 200
         ];
         return response()->json($data, 200);
@@ -108,7 +108,7 @@ class asignaturas_cursosControlador extends Controller
         $asignaturas_cursos = asignaturas_cursosModelo::find($id_asignatura_curso );
        if(!$asignaturas_cursos){
             $data = [
-                'message' => 'asignatura_curso no encontrado',
+                'message' => 'asignatura de curso no encontrada',
                 'status' => 404
             ];
             return response()->json($data, 404);
@@ -135,7 +135,7 @@ class asignaturas_cursosControlador extends Controller
         $asignaturas_cursos->save();
         
         $data = [
-            'message' => 'asignatura_curso Actualizado',
+            'message' => 'asignatura de curso actualizada',
             'asignatura_curso' => $asignaturas_cursos,
             'status' => 200
         ];
