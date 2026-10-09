@@ -3,20 +3,7 @@ import pool from "../db.js";
 
 const router = Router();
 
-//Obtener registros de todos los datos
-router.get('/', async (req, res) => { 
-    try{
-        // Importante para que la api muestre las filas de la tabla en formato json
-        const [rows] = await pool.query(
-            `SELECT id_estudiante, id_persona, codigo_lista, estado
-            FROM estudiantes`);
-        res.json(rows);
-        //
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
+// GET / - Obtener registros de estudiantes con paginación y búsqueda
 router.get("/", async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -48,6 +35,7 @@ router.get("/", async (req, res) => {
         const [rows] = await pool.query(query, [...params, limit, offset]);
         const [countResult] = await pool.query(countQuery, params);
         const total = countResult[0].total;
+
         res.json({
             estudiantes: rows,
             pagination: {
@@ -64,6 +52,7 @@ router.get("/", async (req, res) => {
     }
 });
 
+// GET /:id - Obtener estudiante por ID
 router.get("/:id", async (req, res) => {
     try {
         const [rows] = await pool.query(`
@@ -79,6 +68,7 @@ router.get("/:id", async (req, res) => {
     }
 });
 
+// POST / - Registrar un nuevo estudiante
 router.post("/", async (req, res) => {
     try {
         const { id_persona, codigo_lista, estado } = req.body;
@@ -97,6 +87,7 @@ router.post("/", async (req, res) => {
     }
 });
 
+// PUT /:id - Actualizar un estudiante por ID
 router.put("/:id", async (req, res) => {
     try {
         const { codigo_lista, estado } = req.body;
@@ -111,6 +102,7 @@ router.put("/:id", async (req, res) => {
     }
 });
 
+// DELETE /:id - Eliminar un estudiante por ID
 router.delete("/:id", async (req, res) => {
     try {
         const [result] = await pool.query("DELETE FROM estudiantes WHERE id_estudiante = ?", [req.params.id]);

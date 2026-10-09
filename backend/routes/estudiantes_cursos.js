@@ -3,6 +3,7 @@ import pool from "../db.js";
 
 const router = Router();
 
+// GET / - Obtener matriculas con información detallada
 router.get("/", async (req, res) => {
     try {
         const [rows] = await pool.query(`
@@ -18,22 +19,7 @@ router.get("/", async (req, res) => {
     }
 });
 
-//Obtener registros de todos los datos
-router.get('/', async (req, res) => { 
-    try{
-        // Importante para que la api muestre las filas de la tabla en formato json
-        const [rows] = await pool.query(
-            `SELECT id_estudiante, id_curso, anio 
-            FROM estudiantes_cursos`);
-        res.json(rows);
-        //
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-
-
+// POST / - Matricular estudiante
 router.post("/", async (req, res) => {
     try {
         const { id_estudiante, id_curso, anio } = req.body;
@@ -50,6 +36,7 @@ router.post("/", async (req, res) => {
     }
 });
 
+// DELETE /:id_estudiante/:id_curso/:anio - Eliminar matricula
 router.delete("/:id_estudiante/:id_curso/:anio", async (req, res) => {
     try {
         const [result] = await pool.query(

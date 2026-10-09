@@ -3,21 +3,7 @@ import pool from "../db.js";
 
 const router = Router();
 
-//Obtener registros de todos los datos
-router.get('/', async (req, res) => { 
-    try{
-        // Importante para que la api muestre las filas de la tabla en formato json
-        const [rows] = await pool.query(
-            `SELECT id_curso, nombre_curso, estado
-            FROM cursos`);
-        res.json(rows);
-        //
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Obtener todos los cursos
+// GET / - Obtener todos los cursos con paginación y búsqueda
 router.get("/", async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -60,7 +46,7 @@ router.get("/", async (req, res) => {
     }
 });
 
-// Obtener un curso por ID
+// GET /:id - Obtener un curso por ID
 router.get("/:id", async (req, res) => {
     try {
         const [rows] = await pool.query(
@@ -78,7 +64,7 @@ router.get("/:id", async (req, res) => {
     }
 });
 
-// Crear curso
+// POST / - Crear curso
 router.post("/", async (req, res) => {
     try {
         const { nombre_curso, estado } = req.body;
@@ -110,7 +96,7 @@ router.post("/", async (req, res) => {
     }
 });
 
-// Actualizar curso
+// PUT /:id - Actualizar curso
 router.put("/:id", async (req, res) => {
     try {
         const { nombre_curso, estado } = req.body;
@@ -130,7 +116,7 @@ router.put("/:id", async (req, res) => {
     }
 });
 
-// Eliminar curso
+// DELETE /:id - Eliminar curso
 router.delete("/:id", async (req, res) => {
     try {
         const [result] = await pool.query(
