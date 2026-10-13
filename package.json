@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "express-validator": "^7.3.2"
+  },
+  "devDependencies": {
+    "jest": "^30.5.2"
+  }
+}
