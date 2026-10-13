@@ -3,20 +3,6 @@ import pool from "../db.js";
 
 const router = Router();
 
-//Obtener registros de todos los datos
-router.get('/', async (req, res) => { 
-    try{
-        // Importante para que la api muestre las filas de la tabla en formato json
-        const [rows] = await pool.query(
-            `SELECT id_docente, id_persona, id_cargo
-            FROM docentes`);
-        res.json(rows);
-        //
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
 router.get("/", async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
