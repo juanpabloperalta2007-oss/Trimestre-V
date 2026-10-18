@@ -12,6 +12,7 @@ function Vista_admin() {
   const [cargando, setCargando] = useState(true);
   
   const navigate = useNavigate();
+  const usuario = JSON.parse(localStorage.getItem("usuario") || "{}");
 
   useEffect(() => {
     cargarUsuarios();
@@ -55,7 +56,10 @@ function Vista_admin() {
 
         <div className="contenedor-usuarios">
           <div className="encabezado">
+            <h2>Panel de Administrador</h2>
             <h2>Gestión de Usuarios</h2>
+            <p className="lead">Bienvenido, {usuario.nombre || "Administrador"}</p>
+             <p><strong>Rol:</strong> {usuario.rol}</p>
             <input
               type="text"
               className="buscador"

@@ -13,7 +13,7 @@ function AdminDashboard() {
   return (
     <div className="container mt-5">
       <div className="card p-4 shadow">
-        <h2>Panel de Administrador</h2>
+        <h1>Panel de Administrador</h1>
         <p className="lead">Bienvenido, {usuario.nombre || "Administrador"}</p>
         <p><strong>Rol:</strong> {usuario.rol}</p>
         <button onClick={cerrarSesion} className="btn btn-danger mt-3">Cerrar Sesión</button>
