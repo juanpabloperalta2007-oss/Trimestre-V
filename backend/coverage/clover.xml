@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1791922359562" clover="3.2.0">
-  <project timestamp="1791922359562" name="All files">
+<coverage generated="1792442105386" clover="3.2.0">
+  <project timestamp="1792442105386" name="All files">
     <metrics statements="312" coveredstatements="312" conditionals="140" coveredconditionals="139" methods="31" coveredmethods="31" elements="483" coveredelements="482" complexity="0" loc="312" ncloc="312" packages="1" files="6" classes="6"/>
     <file name="acudientes.js" path="C:\Users\felip\OneDrive\Desktop\proyecto_GAE\Trimestre-V\backend\routes\acudientes.js">
       <metrics statements="55" coveredstatements="55" conditionals="22" coveredconditionals="21" methods="6" coveredmethods="6"/>
