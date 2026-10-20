@@ -85,9 +85,11 @@ function NuevaContrasena() {
             <form onSubmit={cambiarPassword}>
                 {!correoInicial && (
                     <div className="mb-3">
-                        <label className="form-label">Correo electrónico</label>
+                        <label htmlFor="correo" className="form-label">Correo electrónico</label>
                         <input
                             type="email"
+                            id="correo"
+                            name="correo"
                             className="form-control"
                             placeholder="ejemplo@gmail.com"
                             value={correo}
@@ -98,9 +100,11 @@ function NuevaContrasena() {
                 )}
 
                 <div className="mb-3">
-                    <label className="form-label">PIN de Verificación</label>
+                    <label htmlFor="pin" className="form-label">PIN de Verificación</label>
                     <input
                         type="text"
+                        id="pin"
+                        name="pin"
                         className="form-control"
                         placeholder="Ingrese el PIN de 6 dígitos"
                         value={pin}
@@ -110,9 +114,11 @@ function NuevaContrasena() {
                 </div>
 
                 <div className="mb-3">
-                    <label className="form-label">Nueva Contraseña</label>
+                    <label htmlFor="password" className="form-label">Nueva Contraseña</label>
                     <input
                         type="password"
+                        id="password"
+                        name="password"
                         className="form-control"
                         placeholder="Mínimo 8 caracteres"
                         value={password}
@@ -122,9 +128,11 @@ function NuevaContrasena() {
                 </div>
 
                 <div className="mb-3">
-                    <label className="form-label">Confirmar Contraseña</label>
+                    <label htmlFor="confirmarPassword" className="form-label">Confirmar Contraseña</label>
                     <input
                         type="password"
+                        id="confirmarPassword"
+                        name="confirmarPassword"
                         className="form-control"
                         placeholder="Repita la contraseña"
                         value={confirmarPassword}
@@ -133,7 +141,7 @@ function NuevaContrasena() {
                     />
                 </div>
 
-                <button type="submit" className="btn btn-primary" disabled={cargando}>
+                <button type="submit" className="btn btn-primary w-100" disabled={cargando}>
                     {cargando ? "Guardando..." : "Guardar Contraseña"}
                 </button>
 

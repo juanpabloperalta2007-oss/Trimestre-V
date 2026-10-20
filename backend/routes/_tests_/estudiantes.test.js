@@ -24,7 +24,6 @@ describe("Pruebas unitarias para la ruta de Estudiantes", () => {
         { id_estudiante: 1, id_persona: 1, codigo_lista: 101, estado: "Activo" }
       ];
 
-      // 1ª llamada: Consulta de estudiantes | 2ª llamada: Consulta del total (COUNT)
       pool.query
         .mockResolvedValueOnce([mockEstudiantes])
         .mockResolvedValueOnce([[{ total: 1 }]]);
@@ -41,7 +40,6 @@ describe("Pruebas unitarias para la ruta de Estudiantes", () => {
         { id_estudiante: 1, id_persona: 1, codigo_lista: 101, estado: "Activo" }
       ];
 
-      // Simula las dos respuestas al buscar "?search=Juan"
       pool.query
         .mockResolvedValueOnce([mockEstudiantes])
         .mockResolvedValueOnce([[{ total: 1 }]]);
@@ -125,19 +123,36 @@ describe("Pruebas unitarias para la ruta de Estudiantes", () => {
       expect(res.body).toEqual({ error: "Ya existe un estudiante con ese código de lista" });
     });
 
-    test("Debe registrar un estudiante correctamente", async () => {
+    test("Debe registrar un estudiante correctamente enviando el estado explícito", async () => {
       pool.query
         .mockResolvedValueOnce([[]])
         .mockResolvedValueOnce([{ insertId: 5 }]);
 
       const res = await request(app)
         .post("/api/estudiantes")
-        .send({ id_persona: 1, codigo_lista: 102, estado: "Activo" });
+        .send({ id_persona: 1, codigo_lista: 102, estado: "Inactivo" });
 
       expect(res.statusCode).toBe(201);
       expect(res.body).toEqual({
         mensaje: "Estudiante registrado correctamente",
         id_estudiante: 5
+      });
+    });
+
+    // 🌟 ESTA PRUEBA CUBRE LA LÍNEA 82 (estado || "Activo")
+    test("Debe registrar un estudiante asignando 'Activo' por defecto si no se envía el estado", async () => {
+      pool.query
+        .mockResolvedValueOnce([[]])
+        .mockResolvedValueOnce([{ insertId: 6 }]);
+
+      const res = await request(app)
+        .post("/api/estudiantes")
+        .send({ id_persona: 2, codigo_lista: 103 }); // No enviamos 'estado'
+
+      expect(res.statusCode).toBe(201);
+      expect(res.body).toEqual({
+        mensaje: "Estudiante registrado correctamente",
+        id_estudiante: 6
       });
     });
 

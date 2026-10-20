@@ -2,9 +2,21 @@ import { Router } from "express";
 import db from "../db.js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import nodemailer from "nodemailer";
 import { body, validationResult } from "express-validator";
 
 const router = Router();
+
+// ======================================================
+// CONFIGURACIÓN TRANSPORTE NODEMAILER (RECUPERACIÓN REAL)
+// ======================================================
+const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
 
 // ======================================================
 // MIDDLEWARE PARA MANEJAR ERRORES DE VALIDACIÓN
@@ -69,7 +81,6 @@ router.post(
 
             const [filas] = await db.query(sql, [correo]);
 
-            // Usuario no encontrado
             if (filas.length === 0) {
                 return res.status(401).json({
                     error: "Correo o contraseña incorrectos."
@@ -78,14 +89,12 @@ router.post(
 
             const usuario = filas[0];
 
-            // VERIFICAR ESTADO
             if (usuario.estado !== "Activo") {
                 return res.status(403).json({
                     error: "El usuario se encuentra inactivo."
                 });
             }
 
-            // VERIFICAR CARGO
             if (!usuario.id_cargo) {
                 return res.status(403).json({
                     error: "El usuario no tiene un cargo asignado."
@@ -94,7 +103,6 @@ router.post(
 
             let passwordCorrecta = false;
 
-            // CONTRASEÑA BCRYPT
             if (
                 usuario.password_hash &&
                 (
@@ -107,9 +115,7 @@ router.post(
                     password,
                     usuario.password_hash
                 );
-            } 
-            // CONTRASEÑA SHA-256
-            else {
+            } else {
                 const passwordSHA256 = crypto
                     .createHash("sha256")
                     .update(password)
@@ -119,45 +125,23 @@ router.post(
                     passwordSHA256.toLowerCase() ===
                     String(usuario.password_hash).toLowerCase();
 
-                // MIGRAR SHA-256 A BCRYPT
                 if (passwordCorrecta) {
-                    const nuevoHash = await bcrypt.hash(
-                        password,
-                        10
-                    );
+                    const nuevoHash = await bcrypt.hash(password, 10);
 
                     await db.query(
-                        `
-                        UPDATE usuarios
-                        SET password_hash = ?
-                        WHERE id_usuario = ?
-                        `,
-                        [
-                            nuevoHash,
-                            usuario.id_usuario
-                        ]
+                        `UPDATE usuarios SET password_hash = ? WHERE id_usuario = ?`,
+                        [nuevoHash, usuario.id_usuario]
                     );
                 }
             }
 
-            // CONTRASEÑA INCORRECTA
             if (!passwordCorrecta) {
                 return res.status(401).json({
                     error: "Correo o contraseña incorrectos."
                 });
             }
 
-            // NO ENVIAR CONTRASEÑA AL FRONTEND
             delete usuario.password_hash;
-
-            // LOGIN EXITOSO
-            console.log("--------------------------------------");
-            console.log("LOGIN EXITOSO");
-            console.log("Usuario:", usuario.login);
-            console.log("ID:", usuario.id_usuario);
-            console.log("Cargo:", usuario.cargo);
-            console.log("ID cargo:", usuario.id_cargo);
-            console.log("--------------------------------------");
 
             return res.status(200).json({
                 mensaje: "Inicio de sesión exitoso.",
@@ -165,11 +149,7 @@ router.post(
             });
 
         } catch (error) {
-            console.error(
-                "ERROR AL INICIAR SESIÓN:",
-                error
-            );
-
+            console.error("ERROR AL INICIAR SESIÓN:", error);
             return res.status(500).json({
                 error: "Error interno del servidor."
             });
@@ -178,7 +158,7 @@ router.post(
 );
 
 // ======================================================
-// 2. RECUPERAR CONTRASEÑA (VERIFICAR CORREO)
+// 2. RECUPERAR CONTRASEÑA (VERIFICAR Y ENVIAR PIN REAL POR CORREO)
 // ======================================================
 router.post(
     "/recuperar-password",
@@ -194,7 +174,10 @@ router.post(
 
         try {
             const [filas] = await db.query(
-                `SELECT id_usuario, login, estado FROM usuarios WHERE login = ?`,
+                `SELECT u.id_usuario, u.login, u.estado, p.primer_nombre 
+                 FROM usuarios u 
+                 LEFT JOIN personas p ON u.id_usuario = p.id_usuario 
+                 WHERE u.login = ?`,
                 [correo]
             );
 
@@ -208,6 +191,38 @@ router.post(
                 return res.status(403).json({
                     error: "El usuario se encuentra inactivo."
                 });
+            }
+
+            // Generar PIN numérico de 6 dígitos
+            const pin = Math.floor(100000 + Math.random() * 900000).toString();
+
+            // Guardar o actualizar PIN en el usuario
+            await db.query(
+                `UPDATE usuarios SET pin_recuperacion = ? WHERE login = ?`,
+                [pin, correo]
+            );
+
+            // Enviar correo electrónico real
+            try {
+                await transporter.sendMail({
+                    from: `"Liceo Antonio De Toledo" <${process.env.EMAIL_USER}>`,
+                    to: correo,
+                    subject: "Código de Recuperación de Contraseña - Liceo Antonio De Toledo",
+                    html: `
+                        <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                            <h2 style="color: #0d6efd;">Liceo Antonio De Toledo</h2>
+                            <h3>Recuperación de Contraseña</h3>
+                            <p>Hola <strong>${filas[0].primer_nombre || "Usuario"}</strong>,</p>
+                            <p>Tu código de verificación para restablecer la contraseña es:</p>
+                            <div style="background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 4px; color: #333; border: 1px dashed #ccc; margin: 15px 0;">
+                                ${pin}
+                            </div>
+                            <p>Ingresa este PIN en el formulario para proceder con el cambio de tu clave.</p>
+                        </div>
+                    `
+                });
+            } catch (emailError) {
+                console.error("Aviso: No se pudo despachar el correo (Verificar credenciales SMTP):", emailError.message);
             }
 
             return res.status(200).json({
@@ -224,7 +239,7 @@ router.post(
 );
 
 // ======================================================
-// 3. CAMBIAR CONTRASEÑA (RESTABLECER)
+// 3. CAMBIAR CONTRASEÑA (RESTABLECER CON VERIFICACIÓN ESTRICTA DE PIN)
 // ======================================================
 router.post(
     "/cambiar-password",
@@ -233,30 +248,43 @@ router.post(
             .trim()
             .notEmpty().withMessage("El correo es obligatorio.")
             .isEmail().withMessage("Debe ingresar un correo electrónico válido."),
+        body("pin")
+            .trim()
+            .notEmpty().withMessage("El PIN de verificación es obligatorio."),
         body("password")
             .notEmpty().withMessage("La contraseña es obligatoria.")
             .isLength({ min: 8, max: 20 }).withMessage("La contraseña debe tener entre 8 y 20 caracteres.")
     ],
     validarCampos,
     async (req, res) => {
-        const { correo, password } = req.body;
+        const { correo, pin, password } = req.body;
 
         try {
-            const [usuario] = await db.query(
-                `SELECT id_usuario FROM usuarios WHERE login = ?`,
+            const [filas] = await db.query(
+                `SELECT id_usuario, pin_recuperacion FROM usuarios WHERE login = ? AND estado = 'Activo'`,
                 [correo]
             );
 
-            if (usuario.length === 0) {
+            if (filas.length === 0) {
                 return res.status(404).json({
                     error: "El correo no corresponde a ningún usuario activo."
                 });
             }
 
+            const usuario = filas[0];
+
+            // Validar la coincidencia exacta del PIN en base de datos
+            if (!usuario.pin_recuperacion || usuario.pin_recuperacion.trim() !== pin.trim()) {
+                return res.status(400).json({
+                    error: "El PIN es incorrecto o ha expirado."
+                });
+            }
+
             const nuevoHash = await bcrypt.hash(password, 10);
 
+            // Se limpia el PIN de recuperación tras cambiar la clave exitosamente
             await db.query(
-                `UPDATE usuarios SET password_hash = ? WHERE login = ?`,
+                `UPDATE usuarios SET password_hash = ?, pin_recuperacion = NULL WHERE login = ?`,
                 [nuevoHash, correo]
             );
 
@@ -405,7 +433,7 @@ router.post(
             .notEmpty().withMessage("Por favor complete todos los campos obligatorios (*).")
             .isInt().withMessage("El cargo seleccionado debe ser válido.")
             .custom((value) => {
-                const cargosPermitidos = [3, 4]; // 3: Docente, 4: Acudiente
+                const cargosPermitidos = [3, 4];
                 if (!cargosPermitidos.includes(Number(value))) {
                     throw new Error("El rol seleccionado no está permitido.");
                 }
@@ -429,7 +457,6 @@ router.post(
         try {
             await conexion.beginTransaction();
 
-            // VERIFICAR CORREO DUPLICADO
             const [existeCorreo] = await conexion.query(
                 `SELECT id_usuario FROM usuarios WHERE login = ?`,
                 [correo]
@@ -442,7 +469,6 @@ router.post(
                 });
             }
 
-            // VERIFICAR DOCUMENTO DUPLICADO
             const [existeDocumento] = await conexion.query(
                 `SELECT id_persona FROM personas WHERE numero_documento = ?`,
                 [numero_documento]
@@ -455,10 +481,8 @@ router.post(
                 });
             }
 
-            // ENCRIPTAR CONTRASEÑA
             const passwordHash = await bcrypt.hash(password, 10);
 
-            // INSERTAR USUARIO
             const [resultadoUsuario] = await conexion.query(
                 `
                 INSERT INTO usuarios (login, password_hash, estado)
@@ -469,7 +493,6 @@ router.post(
 
             const id_usuario_creado = resultadoUsuario.insertId;
 
-            // INSERTAR PERSONA
             await conexion.query(
                 `
                 INSERT INTO personas
@@ -575,7 +598,6 @@ router.post(
         try {
             await conexion.beginTransaction();
 
-            // VERIFICAR CORREO DUPLICADO
             const [existeUsuario] = await conexion.query(
                 `SELECT id_usuario FROM usuarios WHERE login = ?`,
                 [correo]
@@ -588,10 +610,8 @@ router.post(
                 });
             }
 
-            // ENCRIPTAR CONTRASEÑA
             const passwordHash = await bcrypt.hash(password, 10);
 
-            // INSERTAR USUARIO
             const [resultadoUsuario] = await conexion.query(
                 `
                 INSERT INTO usuarios (login, password_hash, estado)
@@ -602,7 +622,6 @@ router.post(
 
             const id_usuario_creado = resultadoUsuario.insertId;
 
-            // INSERTAR PERSONA
             await conexion.query(
                 `
                 INSERT INTO personas
@@ -673,7 +692,6 @@ router.put(
         try {
             await conexion.beginTransaction();
 
-            // COMPROBAR USUARIO
             const [usuarioExiste] = await conexion.query(
                 `SELECT id_usuario FROM usuarios WHERE id_usuario = ?`,
                 [id]
@@ -686,7 +704,6 @@ router.put(
                 });
             }
 
-            // COMPROBAR CORREO DUPLICADO
             const [loginExiste] = await conexion.query(
                 `SELECT id_usuario FROM usuarios WHERE login = ? AND id_usuario <> ?`,
                 [login, id]
@@ -699,7 +716,6 @@ router.put(
                 });
             }
 
-            // COMPROBAR CARGO
             const [cargoExiste] = await conexion.query(
                 `SELECT id_cargo FROM cargos WHERE id_cargo = ?`,
                 [id_cargo]
@@ -712,13 +728,11 @@ router.put(
                 });
             }
 
-            // ACTUALIZAR USUARIOS
             await conexion.query(
                 `UPDATE usuarios SET login = ?, estado = ? WHERE id_usuario = ?`,
                 [login, estado, id]
             );
 
-            // COMPROBAR PERSONA
             const [personaExiste] = await conexion.query(
                 `SELECT id_usuario FROM personas WHERE id_usuario = ?`,
                 [id]
@@ -731,21 +745,12 @@ router.put(
                 });
             }
 
-            // ACTUALIZAR CARGO
             await conexion.query(
                 `UPDATE personas SET id_cargo = ? WHERE id_usuario = ?`,
                 [id_cargo, id]
             );
 
             await conexion.commit();
-
-            console.log("--------------------------------------");
-            console.log("USUARIO ACTUALIZADO");
-            console.log("ID:", id);
-            console.log("Login:", login);
-            console.log("Estado:", estado);
-            console.log("Cargo:", id_cargo);
-            console.log("--------------------------------------");
 
             return res.status(200).json({
                 mensaje: "Usuario actualizado correctamente."
@@ -775,13 +780,11 @@ router.delete("/:id", async (req, res) => {
     try {
         await conexion.beginTransaction();
 
-        // Eliminar persona
         await conexion.query(
             `DELETE FROM personas WHERE id_usuario = ?`,
             [id]
         );
 
-        // Eliminar usuario
         await conexion.query(
             `DELETE FROM usuarios WHERE id_usuario = ?`,
             [id]
@@ -806,7 +809,4 @@ router.delete("/:id", async (req, res) => {
     }
 });
 
-// ======================================================
-// EXPORTACIÓN
-// ======================================================
 export default router;

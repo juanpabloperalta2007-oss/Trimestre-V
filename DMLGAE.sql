@@ -1,14 +1,14 @@
 use gae;
 
-INSERT INTO usuarios (login, password_hash, estado) VALUES 
-('andrescasas@gmail.com', SHA2('123456789', 256), 'Activo'),
-('juanpablo@gmail.com', SHA2('987654321', 256), 'Activo'),
-('jhoanferia@gmail.com', SHA2('147258369', 256), 'Activo'),
-('marialuisa@gmail.com', SHA2('3692581474', 256), 'Activo'),
-('jenicortez@gmail.com', SHA2('258369147', 256), 'Activo'),
-('jorge5000@gmail.com', SHA2('000111222', 256), 'Activo'),
-('carlosrodriguez@gmail.com', SHA2('111000987', 256), 'Activo'),
-('laura.martinez@gmail.com', SHA2('22255588', 256), 'Activo');
+INSERT INTO usuarios (login, password_hash, pin_recuperacion, estado) VALUES 
+('andrescasas@gmail.com', SHA2('123456789', 256), NULL, 'Activo'),
+('juanpablo@gmail.com', SHA2('987654321', 256), NULL, 'Activo'),
+('jhoanferia@gmail.com', SHA2('147258369', 256), NULL, 'Activo'),
+('marialuisa@gmail.com', SHA2('3692581474', 256), NULL, 'Activo'),
+('jenicortez@gmail.com', SHA2('258369147', 256), NULL, 'Activo'),
+('jorge5000@gmail.com', SHA2('000111222', 256), NULL, 'Activo'),
+('carlosrodriguez@gmail.com', SHA2('111000987', 256), NULL, 'Activo'),
+('laura.martinez@gmail.com', SHA2('22255588', 256), NULL, 'Activo');
 
 INSERT INTO cargos (nombre_cargo) VALUES 
 ('Administrador'),

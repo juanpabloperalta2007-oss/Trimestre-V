@@ -11,6 +11,25 @@ function VerUsuario() {
   // Recupera el usuario pasado por la navegación
   const usuario = location.state || {};
 
+  // Función para obtener el nombre legible del rol según id_cargo o la propiedad cargo
+  const obtenerNombreRol = () => {
+    if (usuario.cargo) return usuario.cargo;
+    if (usuario.nombre_cargo) return usuario.nombre_cargo;
+
+    switch (Number(usuario.id_cargo)) {
+      case 1:
+        return "Administrador";
+      case 2:
+        return "Coordinador";
+      case 3:
+        return "Docente";
+      case 4:
+        return "Acudiente";
+      default:
+        return "Sin cargo asignado";
+    }
+  };
+
   return (
     <>
       <Header />
@@ -56,7 +75,7 @@ function VerUsuario() {
                 <input
                   type="text"
                   className="form-control"
-                  value={usuario.rol || "Profesor"}
+                  value={obtenerNombreRol()}
                   disabled
                 />
               </div>
