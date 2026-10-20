@@ -38,6 +38,7 @@ import Materias from "./pages/Docente/Materias";
 import Alertas from "./pages/Docente/Alertas";
 import Notificaciones from "./pages/Docente/Notificaciones";
 import Reportes from "./pages/Docente/Reportes";
+import LlamarLista from "./pages/Docente/LlamarLista"; // <--- INCLUIDO
 
 // ==============================
 // COORDINADOR
@@ -72,16 +73,10 @@ function obtenerUsuarioSesion() {
 
   try {
     const usuario = JSON.parse(usuarioRaw);
-
     return usuario;
   } catch (error) {
-    console.error(
-      "Error leyendo usuario:",
-      error
-    );
-
+    console.error("Error leyendo usuario:", error);
     localStorage.removeItem("usuario");
-
     return null;
   }
 }
@@ -95,60 +90,21 @@ function obtenerCargoUsuario(usuario) {
     return null;
   }
 
-  // ==========================================
-  // CASO NORMAL
-  // ==========================================
-
   if (usuario.id_cargo !== undefined) {
-    return parseInt(
-      usuario.id_cargo,
-      10
-    );
+    return parseInt(usuario.id_cargo, 10);
   }
 
-  // ==========================================
-  // SI VIENE DENTRO DE "usuario"
-  // ==========================================
-
-  if (
-    usuario.usuario &&
-    usuario.usuario.id_cargo !== undefined
-  ) {
-    return parseInt(
-      usuario.usuario.id_cargo,
-      10
-    );
+  if (usuario.usuario && usuario.usuario.id_cargo !== undefined) {
+    return parseInt(usuario.usuario.id_cargo, 10);
   }
 
-  // ==========================================
-  // SI VIENE COMO "cargo"
-  // ==========================================
-
-  if (
-    usuario.cargo !== undefined &&
-    typeof usuario.cargo !== "object"
-  ) {
-    return parseInt(
-      usuario.cargo,
-      10
-    );
+  if (usuario.cargo !== undefined && typeof usuario.cargo !== "object") {
+    return parseInt(usuario.cargo, 10);
   }
 
-  // ==========================================
-  // SI "cargo" ES UN OBJETO
-  // ==========================================
-
-  if (
-    usuario.cargo &&
-    typeof usuario.cargo === "object"
-  ) {
-    if (
-      usuario.cargo.id_cargo !== undefined
-    ) {
-      return parseInt(
-        usuario.cargo.id_cargo,
-        10
-      );
+  if (usuario.cargo && typeof usuario.cargo === "object") {
+    if (usuario.cargo.id_cargo !== undefined) {
+      return parseInt(usuario.cargo.id_cargo, 10);
     }
   }
 
@@ -158,122 +114,32 @@ function obtenerCargoUsuario(usuario) {
 // ======================================================
 // RUTA PROTEGIDA
 // ======================================================
-//
-// cargoPermitido puede ser:
-//
-// 2
-//
-// o varios:
-//
-// [2, 3]
-//
-// ======================================================
 
-function RutaProtegida({
-  children,
-  cargoPermitido
-}) {
+function RutaProtegida({ children, cargoPermitido }) {
   const usuario = obtenerUsuarioSesion();
 
-  // ==========================================
-  // NO HAY SESIÓN
-  // ==========================================
-
   if (!usuario) {
-    console.log(
-      "Ruta protegida: no existe sesión."
-    );
-
-    return (
-      <Navigate
-        to="/"
-        replace
-      />
-    );
+    console.log("Ruta protegida: no existe sesión.");
+    return <Navigate to="/" replace />;
   }
 
-  // ==========================================
-  // OBTENER CARGO
-  // ==========================================
-
-  const cargoUsuario =
-    obtenerCargoUsuario(usuario);
-
-  console.log(
-    "Usuario actual:",
-    usuario
-  );
-
-  console.log(
-    "Cargo usuario:",
-    cargoUsuario,
-    "| Cargo requerido:",
-    cargoPermitido
-  );
-
-  // ==========================================
-  // VERIFICAR CARGO
-  // ==========================================
+  const cargoUsuario = obtenerCargoUsuario(usuario);
 
   if (cargoPermitido !== undefined) {
-
-    // ----------------------------------------
-    // Validar que exista un cargo
-    // ----------------------------------------
-
-    if (
-      cargoUsuario === null ||
-      Number.isNaN(cargoUsuario)
-    ) {
-      console.error(
-        "El usuario no tiene un id_cargo válido."
-      );
-
-      return (
-        <Navigate
-          to="/"
-          replace
-        />
-      );
+    if (cargoUsuario === null || Number.isNaN(cargoUsuario)) {
+      console.error("El usuario no tiene un id_cargo válido.");
+      return <Navigate to="/" replace />;
     }
 
-    // ----------------------------------------
-    // Convertir permiso a arreglo
-    // ----------------------------------------
+    const cargosPermitidos = Array.isArray(cargoPermitido)
+      ? cargoPermitido.map(Number)
+      : [Number(cargoPermitido)];
 
-    const cargosPermitidos =
-      Array.isArray(cargoPermitido)
-        ? cargoPermitido.map(Number)
-        : [Number(cargoPermitido)];
-
-    // ----------------------------------------
-    // Verificar si el cargo está permitido
-    // ----------------------------------------
-
-    const tienePermiso =
-      cargosPermitidos.includes(
-        Number(cargoUsuario)
-      );
-
-    // ----------------------------------------
-    // Si no tiene permiso
-    // ----------------------------------------
+    const tienePermiso = cargosPermitidos.includes(Number(cargoUsuario));
 
     if (!tienePermiso) {
-      console.error(
-        "Acceso denegado.",
-        "Cargo usuario:",
-        cargoUsuario,
-        "Cargos permitidos:",
-        cargosPermitidos
-      );
-
-      return (
-        <Navigate
-          to="/"
-          replace
-        />
-      );
+      console.error("Acceso denegado. Cargo usuario:", cargoUsuario, "Cargos permitidos:", cargosPermitidos);
+      return <Navigate to="/" replace />;
     }
   }
 
@@ -285,52 +151,27 @@ function RutaProtegida({
 // ======================================================
 
 function App() {
-  const [
-    mensajeBackend,
-    setMensajeBackend
-  ] = useState("");
-
-  // ======================================================
-  // COMPROBAR BACKEND
-  // ======================================================
+  const [mensajeBackend, setMensajeBackend] = useState("");
 
   useEffect(() => {
-    fetch(
-      "http://localhost:5000/api/mensaje"
-    )
+    fetch("http://localhost:5000/api/mensaje")
       .then((res) => {
         if (!res.ok) {
-          throw new Error(
-            `Error HTTP ${res.status}`
-          );
+          throw new Error(`Error HTTP ${res.status}`);
         }
-
         return res.json();
       })
       .then((data) => {
-        setMensajeBackend(
-          data.mensaje || ""
-        );
+        setMensajeBackend(data.mensaje || "");
       })
       .catch((error) => {
-        console.error(
-          "Error al conectar con el backend:",
-          error
-        );
+        console.error("Error al conectar con el backend:", error);
       });
   }, []);
-
-  // ======================================================
-  // RENDER
-  // ======================================================
 
   return (
     <BrowserRouter>
       <AuthProvider>
-
-        {/* ==============================
-            MENSAJE DEL BACKEND
-        ============================== */}
 
         {mensajeBackend && (
           <div
@@ -346,320 +187,53 @@ function App() {
           </div>
         )}
 
-        {/* ==============================
-            RUTAS
-        ============================== */}
-
         <Routes>
 
-          {/* ==================================
-              AUTENTICACIÓN
-          ================================== */}
+          {/* AUTENTICACIÓN */}
+          <Route path="/" element={<Login />} />
+          <Route path="/registro" element={<Registro />} />
+          <Route path="/enviar_pin" element={<EnviarPin />} />
+          <Route path="/nueva_contrasena" element={<NuevaContrasena />} />
 
-          <Route
-            path="/"
-            element={<Login />}
-          />
+          {/* ADMINISTRADOR (CARGO = 1) */}
+          <Route path="/admin" element={<RutaProtegida cargoPermitido={1}><VistaAdmin /></RutaProtegida>} />
+          <Route path="/vista_admin" element={<RutaProtegida cargoPermitido={1}><VistaAdmin /></RutaProtegida>} />
+          <Route path="/registrar_usuario" element={<RutaProtegida cargoPermitido={1}><RegistrarUsuario /></RutaProtegida>} />
+          <Route path="/editar_usuario" element={<RutaProtegida cargoPermitido={1}><EditarUsuario /></RutaProtegida>} />
+          <Route path="/ver_usuario" element={<RutaProtegida cargoPermitido={1}><VerUsuario /></RutaProtegida>} />
 
-          <Route
-            path="/registro"
-            element={<Registro />}
-          />
+          {/* DOCENTE (CARGO = 3) */}
+          <Route path="/docente" element={<RutaProtegida cargoPermitido={3}><Inicio /></RutaProtegida>} />
+          <Route path="/inicio" element={<RutaProtegida cargoPermitido={3}><Inicio /></RutaProtegida>} />
+          <Route path="/llamar-lista" element={<RutaProtegida cargoPermitido={3}><LlamarLista /></RutaProtegida>} /> {/* <--- RUTA HABILITADA */}
+          <Route path="/consultar-horario" element={<RutaProtegida cargoPermitido={3}><ConsultarHorario /></RutaProtegida>} />
+          <Route path="/horario" element={<RutaProtegida cargoPermitido={3}><Horario /></RutaProtegida>} />
+          <Route path="/materias-agregadas" element={<RutaProtegida cargoPermitido={3}><MateriasAgregadas /></RutaProtegida>} />
+          <Route path="/materias-registradas" element={<RutaProtegida cargoPermitido={3}><MateriasAgregadas /></RutaProtegida>} />
+          <Route path="/consultar-materias" element={<RutaProtegida cargoPermitido={3}><MateriasAgregadas /></RutaProtegida>} />
+          <Route path="/materias" element={<RutaProtegida cargoPermitido={3}><Materias /></RutaProtegida>} />
 
-          <Route
-            path="/enviar_pin"
-            element={<EnviarPin />}
-          />
+          {/* ALERTAS, NOTIFICACIONES Y REPORTES */}
+          <Route path="/alertas" element={<RutaProtegida cargoPermitido={[2, 3]}><Alertas /></RutaProtegida>} />
+          <Route path="/notificaciones" element={<RutaProtegida cargoPermitido={3}><Notificaciones /></RutaProtegida>} />
+          <Route path="/reportes" element={<RutaProtegida cargoPermitido={[2, 3]}><Reportes /></RutaProtegida>} />
 
-          <Route
-            path="/nueva_contrasena"
-            element={<NuevaContrasena />}
-          />
+          {/* COORDINADOR (CARGO = 2) */}
+          <Route path="/coordinador" element={<RutaProtegida cargoPermitido={2}><InicioCoordinador /></RutaProtegida>} />
+          <Route path="/gestion-excusas" element={<RutaProtegida cargoPermitido={2}><GestionExcusas /></RutaProtegida>} />
+          <Route path="/cursos" element={<RutaProtegida cargoPermitido={2}><Cursos /></RutaProtegida>} />
 
-          {/* ==================================
-              ADMINISTRADOR
-              CARGO = 1
-          ================================== */}
+          {/* ACUDIENTE (CARGO = 4) */}
+          <Route path="/acudiente" element={<RutaProtegida cargoPermitido={4}><InicioAcud /></RutaProtegida>} />
+          <Route path="/excusas" element={<RutaProtegida cargoPermitido={4}><Excusas /></RutaProtegida>} />
+          <Route path="/consultar-estudiante" element={<RutaProtegida cargoPermitido={4}><ConsultarEstudianteAcud /></RutaProtegida>} />
+          <Route path="/estadistica-mensual" element={<RutaProtegida cargoPermitido={4}><EstadisticaMensualAcud /></RutaProtegida>} />
+          <Route path="/generar-excusa" element={<RutaProtegida cargoPermitido={4}><GenerarExcusaAcud /></RutaProtegida>} />
+          <Route path="/acudiente/estadisticas" element={<RutaProtegida cargoPermitido={4}><EstadisticaMensualAcud /></RutaProtegida>} />
+          <Route path="/acudiente/generar-excusa" element={<RutaProtegida cargoPermitido={4}><GenerarExcusaAcud /></RutaProtegida>} />
 
-          <Route
-            path="/admin"
-            element={
-              <RutaProtegida cargoPermitido={1}>
-                <VistaAdmin />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/vista_admin"
-            element={
-              <RutaProtegida cargoPermitido={1}>
-                <VistaAdmin />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/registrar_usuario"
-            element={
-              <RutaProtegida cargoPermitido={1}>
-                <RegistrarUsuario />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/editar_usuario"
-            element={
-              <RutaProtegida cargoPermitido={1}>
-                <EditarUsuario />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/ver_usuario"
-            element={
-              <RutaProtegida cargoPermitido={1}>
-                <VerUsuario />
-              </RutaProtegida>
-            }
-          />
-
-          {/* ==================================
-              DOCENTE
-              CARGO = 3
-          ================================== */}
-
-          <Route
-            path="/docente"
-            element={
-              <RutaProtegida cargoPermitido={3}>
-                <Inicio />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/inicio"
-            element={
-              <RutaProtegida cargoPermitido={3}>
-                <Inicio />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/consultar-horario"
-            element={
-              <RutaProtegida cargoPermitido={3}>
-                <ConsultarHorario />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/horario"
-            element={
-              <RutaProtegida cargoPermitido={3}>
-                <Horario />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/materias-agregadas"
-            element={
-              <RutaProtegida cargoPermitido={3}>
-                <MateriasAgregadas />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/materias-registradas"
-            element={
-              <RutaProtegida cargoPermitido={3}>
-                <MateriasAgregadas />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/consultar-materias"
-            element={
-              <RutaProtegida cargoPermitido={3}>
-                <MateriasAgregadas />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/materias"
-            element={
-              <RutaProtegida cargoPermitido={3}>
-                <Materias />
-              </RutaProtegida>
-            }
-          />
-
-          {/* ==================================
-              ALERTAS
-              DOCENTE = 3
-              COORDINADOR = 2
-          ================================== */}
-
-          <Route
-            path="/alertas"
-            element={
-              <RutaProtegida cargoPermitido={[2, 3]}>
-                <Alertas />
-              </RutaProtegida>
-            }
-          />
-
-          {/* ==================================
-              NOTIFICACIONES
-              SOLO DOCENTE = 3
-          ================================== */}
-
-          <Route
-            path="/notificaciones"
-            element={
-              <RutaProtegida cargoPermitido={3}>
-                <Notificaciones />
-              </RutaProtegida>
-            }
-          />
-
-          {/* ==================================
-              REPORTES
-              DOCENTE = 3
-              COORDINADOR = 2
-          ================================== */}
-
-          <Route
-            path="/reportes"
-            element={
-              <RutaProtegida cargoPermitido={[2, 3]}>
-                <Reportes />
-              </RutaProtegida>
-            }
-          />
-
-          {/* ==================================
-              COORDINADOR
-              CARGO = 2
-          ================================== */}
-
-          <Route
-            path="/coordinador"
-            element={
-              <RutaProtegida cargoPermitido={2}>
-                <InicioCoordinador />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/gestion-excusas"
-            element={
-              <RutaProtegida cargoPermitido={2}>
-                <GestionExcusas />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/cursos"
-            element={
-              <RutaProtegida cargoPermitido={2}>
-                <Cursos />
-              </RutaProtegida>
-            }
-          />
-
-          {/* ==================================
-              ACUDIENTE
-              CARGO = 4
-          ================================== */}
-
-          <Route
-            path="/acudiente"
-            element={
-              <RutaProtegida cargoPermitido={4}>
-                <InicioAcud />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/excusas"
-            element={
-              <RutaProtegida cargoPermitido={4}>
-                <Excusas />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/consultar-estudiante"
-            element={
-              <RutaProtegida cargoPermitido={4}>
-                <ConsultarEstudianteAcud />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/estadistica-mensual"
-            element={
-              <RutaProtegida cargoPermitido={4}>
-                <EstadisticaMensualAcud />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/generar-excusa"
-            element={
-              <RutaProtegida cargoPermitido={4}>
-                <GenerarExcusaAcud />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/acudiente/estadisticas"
-            element={
-              <RutaProtegida cargoPermitido={4}>
-                <EstadisticaMensualAcud />
-              </RutaProtegida>
-            }
-          />
-
-          <Route
-            path="/acudiente/generar-excusa"
-            element={
-              <RutaProtegida cargoPermitido={4}>
-                <GenerarExcusaAcud />
-              </RutaProtegida>
-            }
-          />
-
-          {/* ==================================
-              RUTA NO EXISTENTE
-          ================================== */}
-
-          <Route
-            path="*"
-            element={
-              <Navigate
-                to="/"
-                replace
-              />
-            }
-          />
+          {/* RUTA NO EXISTENTE */}
+          <Route path="*" element={<Navigate to="/" replace />} />
 
         </Routes>
 
