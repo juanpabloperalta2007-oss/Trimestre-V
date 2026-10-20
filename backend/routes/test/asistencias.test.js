@@ -444,6 +444,48 @@ describe('Pruebas de Caja Blanca - Asistencias (100% Cobertura)', () => {
             expect(res.statusCode).toBe(500);
         });
 
+        test('GET /estadisticas/:id_estudiante sin el parámetro mes (evaluando rama IS NULL)', async () => {
+            pool.query.mockResolvedValueOnce([[
+                { asistencias: 5, fallas_sin_justificar: 1, fallas_justificadas: 0, retardos: 1 }
+            ]]);
+
+            // Hacemos la petición SIN pasar ?mes=
+            const res = await request(app).get('/asistencias/estadisticas/10');
+
+            expect(res.statusCode).toBe(200);
+            expect(res.body.asistencias).toBe(5);
+        });
+
+        test('POST /lista cuando req.body viene completamente vacío o nulo (evaluando rama || {})', async () => {
+            const res = await request(app)
+                .post('/asistencias/lista')
+                .send(null); // Forzamos un body nulo para tocar la rama de req.body || {}
+
+            expect(res.statusCode).toBe(400);
+            expect(res.body.mensaje).toBe('La fecha de asistencia es obligatoria.');
+        });
+
+        test('POST /lista actualiza la asistencia enviando observaciones como null o vacías', async () => {
+            pool.query.mockResolvedValueOnce([[{ id_estudiante: 10 }]]);
+            pool.query.mockResolvedValueOnce([[{ id_asignatura_curso: 5 }]]);
+            pool.query.mockResolvedValueOnce([[{ id_asistencia: 50 }]]); // Asistencia existe
+            pool.query.mockResolvedValueOnce([{ affectedRows: 1 }]);
+
+            const res = await request(app)
+                .post('/asistencias/lista')
+                .send({
+                    fecha: '2026-05-10',
+                    estado: 'presente',
+                    observaciones: null, // Forzamos el lado derecho del operador || null
+                    id_estudiante: 10,
+                    id_asignatura_curso: 5
+                });
+
+            expect(res.statusCode).toBe(200);
+            expect(res.body.mensaje).toBe('Asistencia actualizada correctamente.');
+        });
+
+
     });
 
 });
