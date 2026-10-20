@@ -47,6 +47,11 @@ function SidebarDocente() {
                     Reportes
                 </Link>
 
+                <Link to="/llamar-lista" className="list-group-item list-group-item-action">
+                    <i className="bi bi-card-checklist me-2"></i>
+                    Llamar lista
+                </Link>
+
             </div>
 
         </div>

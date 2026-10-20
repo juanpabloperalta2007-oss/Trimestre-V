@@ -39,6 +39,7 @@ import Materias from "./pages/Docente/Materias";
 import Alertas from "./pages/Docente/Alertas";
 import Notificaciones from "./pages/Docente/Notificaciones";
 import Reportes from "./pages/Docente/Reportes";
+import LlamarLista from "./pages/Docente/LlamarLista";
 
 // ==============================
 // COORDINADOR
@@ -188,6 +189,7 @@ function App() {
           <Route path="/alertas" element={<RutaProtegida cargoPermitido={3}><Alertas /></RutaProtegida>} />
           <Route path="/notificaciones" element={<RutaProtegida cargoPermitido={3}><Notificaciones /></RutaProtegida>} />
           <Route path="/reportes" element={<RutaProtegida cargoPermitido={3}><Reportes /></RutaProtegida>} />
+          <Route path="/llamar-lista" element={<RutaProtegida cargoPermitido={3}><LlamarLista /></RutaProtegida>} />
 
           {/* COORDINADOR */}
           <Route path="/coordinador" element={<RutaProtegida cargoPermitido={2}><InicioCoordinador /></RutaProtegida>} />

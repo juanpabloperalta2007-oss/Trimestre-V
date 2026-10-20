@@ -38,4 +38,18 @@ export const eliminarUsuario = async (id) => (await API.delete(`/usuarios/${id}`
 
 export const actualizarUsuario = async (id, datos) => (await API.put(`/usuarios/${id}`, datos)).data;
 
+// ==========================================
+// ASISTENCIA
+// ==========================================
+
+export const obtenerListaAsistencia = async (id, fecha) => {
+  const respuesta = await axios.get(`http://localhost:5000/api/asistencia/${id}?fecha=${fecha}`);
+  return respuesta.data;
+};
+
+export const guardarAsistencia = async (datos) => {
+  const respuesta = await axios.post(`http://localhost:5000/api/asistencia`, datos);
+  return respuesta.data;
+};
+
 export default API;

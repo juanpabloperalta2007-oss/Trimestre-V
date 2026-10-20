@@ -466,197 +466,80 @@ function LlamarLista() {
     // ==================================================
 
     const guardarLista = async () => {
-
         try {
-
             setGuardando(true);
-
             setError("");
-
             setMensaje("");
-
 
             // ------------------------------------------
             // VALIDAR ID MATERIA
             // ------------------------------------------
+            const idMateriaCurso = Number(idAsignaturaCurso);
 
-            const idMateriaCurso =
-                Number(idAsignaturaCurso);
-
-
-            if (
-                !Number.isInteger(
-                    idMateriaCurso
-                ) ||
-                idMateriaCurso <= 0
-            ) {
-
-                setError(
-                    "El código de la materia o curso no es válido."
-                );
-
+            if (!Number.isInteger(idMateriaCurso) || idMateriaCurso <= 0) {
+                setError("El código de la materia o curso no es válido.");
                 return;
             }
-
 
             // ------------------------------------------
             // VALIDAR LISTA
             // ------------------------------------------
-
-            if (
-                !estudiantes ||
-                estudiantes.length === 0
-            ) {
-
-                setError(
-                    "No hay estudiantes para guardar."
-                );
-
+            if (!estudiantes || estudiantes.length === 0) {
+                setError("No hay estudiantes para guardar.");
                 return;
             }
-
 
             // ------------------------------------------
             // VALIDAR ESTADOS
             // ------------------------------------------
+            const estudiantesSinEstado = estudiantes.filter((estudiante) => {
+                return !convertirEstadoBD(estudiante.estado);
+            });
 
-            const estudiantesSinEstado =
-                estudiantes.filter(
-                    (estudiante) => {
-
-                        return !convertirEstadoBD(
-                            estudiante.estado
-                        );
-
-                    }
-                );
-
-
-            if (
-                estudiantesSinEstado.length > 0
-            ) {
-
-                setError(
-                    "Todos los estudiantes deben tener un estado de asistencia."
-                );
-
+            if (estudiantesSinEstado.length > 0) {
+                setError("Todos los estudiantes deben tener un estado de asistencia.");
                 return;
             }
-
 
             // ------------------------------------------
             // GUARDAR UNO POR UNO
             // ------------------------------------------
+            for (const estudiante of estudiantes) {
+                const idEstudiante = Number(estudiante.id_estudiante);
+                const estadoBD = convertirEstadoBD(estudiante.estado);
 
-            for (
-                const estudiante of estudiantes
-            ) {
-
-                const idEstudiante =
-                    Number(
-                        estudiante.id_estudiante
-                    );
-
-
-                const estadoBD =
-                    convertirEstadoBD(
-                        estudiante.estado
-                    );
-
-
-                if (
-                    !Number.isInteger(
-                        idEstudiante
-                    ) ||
-                    idEstudiante <= 0
-                ) {
-
-                    throw new Error(
-                        `ID de estudiante inválido: ${idEstudiante}`
-                    );
-
+                if (!Number.isInteger(idEstudiante) || idEstudiante <= 0) {
+                    throw new Error(`ID de estudiante inválido: ${idEstudiante}`);
                 }
 
-
                 const datos = {
-
-                    fecha:
-                        fecha,
-
-                    estado:
-                        estadoBD,
-
-                    observaciones:
-                        estudiante.observaciones ||
-                        null,
-
-                    id_estudiante:
-                        idEstudiante,
-
-                    id_asignatura_curso:
-                        idMateriaCurso
-
+                    fecha: fecha,
+                    estado: estadoBD,
+                    observaciones: estudiante.observaciones || null,
+                    id_estudiante: idEstudiante,
+                    id_asignatura_curso: idMateriaCurso
                 };
 
-
-                console.log(
-                    "GUARDANDO:",
-                    datos
-                );
-
-
-                await guardarAsistencia(
-                    datos
-                );
-
+                await guardarAsistencia(datos);
             }
 
-
             // ------------------------------------------
-            // MENSAJE DE ÉXITO
+            // 1. RECARGAR LA LISTA PRIMERO
             // ------------------------------------------
-
-            setMensaje(
-                "La asistencia fue guardada correctamente."
-            );
-
-
-            // ------------------------------------------
-            // RECARGAR
-            // ------------------------------------------
-
             await cargarLista();
 
-        }
+            // ------------------------------------------
+            // 2. MENSAJE DE ÉXITO AL FINAL
+            // ------------------------------------------
+            setMensaje("La asistencia fue guardada correctamente.");
 
-        catch (error) {
-
-            console.error(
-                "Error guardando asistencia:",
-                error
-            );
-
-
-            const mensajeBackend =
-                error?.response?.data?.mensaje ||
-                error?.response?.data?.error ||
-                error?.message ||
-                "";
-
-
-            setError(
-                mensajeBackend ||
-                "Ocurrió un error al guardar la asistencia."
-            );
-
-        }
-
-        finally {
-
+        } catch (error) {
+            console.error("Error guardando asistencia:", error);
+            const mensajeBackend = error?.response?.data?.mensaje || error?.response?.data?.error || error?.message || "";
+            setError(mensajeBackend || "Ocurrió un error al guardar la asistencia.");
+        } finally {
             setGuardando(false);
-
         }
-
     };
 
 
