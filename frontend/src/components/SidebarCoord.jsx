@@ -39,6 +39,15 @@ function SidebarCoord() {
                     Cursos
                 </Link>
 
+                {/* GESTIÓN DE MATERIAS (NUEVO) */}
+                <Link
+                    to="/asignaturas-coordinador"
+                    className="list-group-item list-group-item-action"
+                >
+                    <i className="bi bi-book-fill me-2"></i>
+                    Gestión de Materias
+                </Link>
+
             </div>
 
         </div>

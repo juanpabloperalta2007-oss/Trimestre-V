@@ -1,4 +1,4 @@
-use gae;
+
 
 INSERT INTO usuarios (login, password_hash, pin_recuperacion, estado) VALUES 
 ('andrescasas@gmail.com', SHA2('123456789', 256), NULL, 'Activo'),
@@ -79,13 +79,13 @@ INSERT INTO asignaturas (nombre_asignatura, id_area) VALUES
 
 
 
-INSERT INTO cursos (nombre_curso, estado) VALUES
-('601', 'Activo'),
-('602', 'Activo'),
-('701', 'Activo'),
-('702', 'Activo'),
-('801', 'Activo'),
-('802', 'Activo');
+INSERT INTO cursos (nombre_curso, estado, id_director) VALUES
+('601', 'Activo', NULL),
+('602', 'Activo', NULL),
+('701', 'Activo', NULL),
+('702', 'Activo', NULL),
+('801', 'Activo', NULL),
+('802', 'Activo', NULL);
 
 
 

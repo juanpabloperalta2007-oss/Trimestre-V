@@ -3,7 +3,33 @@ import pool from "../db.js";
 
 const router = Router();
 
-// GET / - Obtener todos los cursos con paginación y búsqueda
+// ==========================================
+// 1. OBTENER LISTA DE DOCENTES / PROFESORES (id_cargo = 3)
+// IMPORTANTE: Colocar esta ruta ANTES de GET /:id para evitar conflictos de URL
+// ==========================================
+router.get("/docentes", async (req, res) => {
+    try {
+        const sql = `
+            SELECT 
+                u.id_usuario,
+                CONCAT_WS(' ', p.primer_nombre, p.segundo_nombre, p.primer_apellido, p.segundo_apellido) AS nombre_completo,
+                u.login AS correo
+            FROM usuarios u
+            INNER JOIN personas p ON u.id_usuario = p.id_usuario
+            WHERE p.id_cargo = 3 AND u.estado = 'Activo'
+            ORDER BY p.primer_nombre ASC
+        `;
+        const [docentes] = await pool.query(sql);
+        res.json(docentes);
+    } catch (error) {
+        console.error("Error al obtener docentes:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==========================================
+// 2. OBTENER CURSOS CON SU DIRECTOR Y PAGINACIÓN
+// ==========================================
 router.get("/", async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -11,18 +37,30 @@ router.get("/", async (req, res) => {
         const search = req.query.search || "";
         const offset = (page - 1) * limit;
 
-        let query = "SELECT * FROM cursos";
-        let countQuery = "SELECT COUNT(*) AS total FROM cursos";
+        // JOIN para traer el nombre del director asignado
+        let query = `
+            SELECT 
+                c.id_curso,
+                c.nombre_curso,
+                c.estado,
+                c.id_director,
+                CONCAT_WS(' ', p.primer_nombre, p.primer_apellido) AS director
+            FROM cursos c
+            LEFT JOIN usuarios u ON c.id_director = u.id_usuario
+            LEFT JOIN personas p ON u.id_usuario = p.id_usuario
+        `;
+
+        let countQuery = "SELECT COUNT(*) AS total FROM cursos c";
         const params = [];
 
         if (search) {
-            const searchCondition = " WHERE nombre_curso LIKE ? ";
+            const searchCondition = " WHERE c.nombre_curso LIKE ? ";
             query += searchCondition;
             countQuery += searchCondition;
             params.push(`%${search}%`);
         }
 
-        query += " ORDER BY nombre_curso ASC LIMIT ? OFFSET ?";
+        query += " ORDER BY c.nombre_curso ASC LIMIT ? OFFSET ?";
 
         const [rows] = await pool.query(query, [...params, limit, offset]);
         const [countResult] = await pool.query(countQuery, params);
@@ -46,11 +84,43 @@ router.get("/", async (req, res) => {
     }
 });
 
-// GET /:id - Obtener un curso por ID
+// ==========================================
+// 3. OBTENER ESTUDIANTES DE UN CURSO ESPECÍFICO
+// ==========================================
+router.get("/:id/estudiantes", async (req, res) => {
+    try {
+        const sql = `
+            SELECT 
+                e.id_estudiante,
+                p.primer_nombre,
+                p.primer_apellido,
+                p.numero_documento
+            FROM estudiantes e
+            INNER JOIN personas p ON e.id_persona = p.id_persona
+            INNER JOIN estudiantes_cursos ec ON e.id_estudiante = ec.id_estudiante
+            WHERE ec.id_curso = ?
+        `;
+        const [estudiantes] = await pool.query(sql, [req.params.id]);
+        res.json(estudiantes);
+    } catch (error) {
+        console.error("Error al obtener estudiantes del curso:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==========================================
+// 4. OBTENER UN CURSO POR ID
+// ==========================================
 router.get("/:id", async (req, res) => {
     try {
         const [rows] = await pool.query(
-            "SELECT * FROM cursos WHERE id_curso = ?",
+            `SELECT 
+                c.*, 
+                CONCAT_WS(' ', p.primer_nombre, p.primer_apellido) AS director 
+             FROM cursos c 
+             LEFT JOIN usuarios u ON c.id_director = u.id_usuario 
+             LEFT JOIN personas p ON u.id_usuario = p.id_usuario 
+             WHERE c.id_curso = ?`,
             [req.params.id]
         );
 
@@ -64,10 +134,12 @@ router.get("/:id", async (req, res) => {
     }
 });
 
-// POST / - Crear curso
+// ==========================================
+// 5. CREAR CURSO (Con soporte para id_director)
+// ==========================================
 router.post("/", async (req, res) => {
     try {
-        const { nombre_curso, estado } = req.body;
+        const { nombre_curso, estado, id_director } = req.body;
 
         if (!nombre_curso) {
             return res.status(400).json({ error: "El nombre del curso es obligatorio" });
@@ -83,8 +155,8 @@ router.post("/", async (req, res) => {
         }
 
         const [result] = await pool.query(
-            "INSERT INTO cursos (nombre_curso, estado) VALUES (?, ?)",
-            [nombre_curso, estado || "Activo"]
+            "INSERT INTO cursos (nombre_curso, estado, id_director) VALUES (?, ?, ?)",
+            [nombre_curso, estado || "Activo", id_director || null]
         );
 
         res.status(201).json({
@@ -96,14 +168,39 @@ router.post("/", async (req, res) => {
     }
 });
 
-// PUT /:id - Actualizar curso
-router.put("/:id", async (req, res) => {
+// ==========================================
+// 6. ASIGNAR / CAMBIAR DIRECTOR DE CURSO
+// ==========================================
+router.put("/:id/director", async (req, res) => {
     try {
-        const { nombre_curso, estado } = req.body;
+        const { id_director } = req.body;
 
         const [result] = await pool.query(
-            "UPDATE cursos SET nombre_curso = ?, estado = ? WHERE id_curso = ?",
-            [nombre_curso, estado, req.params.id]
+            "UPDATE cursos SET id_director = ? WHERE id_curso = ?",
+            [id_director || null, req.params.id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: "Curso no encontrado" });
+        }
+
+        res.json({ mensaje: "Director asignado correctamente" });
+    } catch (error) {
+        console.error("Error al asignar director:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==========================================
+// 7. ACTUALIZAR CURSO GENERAL
+// ==========================================
+router.put("/:id", async (req, res) => {
+    try {
+        const { nombre_curso, estado, id_director } = req.body;
+
+        const [result] = await pool.query(
+            "UPDATE cursos SET nombre_curso = ?, estado = ?, id_director = ? WHERE id_curso = ?",
+            [nombre_curso, estado, id_director || null, req.params.id]
         );
 
         if (result.affectedRows === 0) {
@@ -116,7 +213,9 @@ router.put("/:id", async (req, res) => {
     }
 });
 
-// DELETE /:id - Eliminar curso
+// ==========================================
+// 8. ELIMINAR CURSO
+// ==========================================
 router.delete("/:id", async (req, res) => {
     try {
         const [result] = await pool.query(

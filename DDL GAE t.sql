@@ -1,12 +1,13 @@
-drop database GAE;
-create database GAE;
-use GAE;
+drop database GAE2;
+create database GAE2;
+use GAE2;
 show tables;
 -- 1. AUTENTICACIÓN Y TABLA BASE DE PERSONAS
 CREATE TABLE usuarios (
     id_usuario INT AUTO_INCREMENT PRIMARY KEY,
     login VARCHAR(100) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    pin_recuperacion VARCHAR(10) NULL,
     estado VARCHAR(20) DEFAULT 'Activo'
 );
 
@@ -82,7 +83,9 @@ CREATE TABLE asignaturas (
 CREATE TABLE cursos (
     id_curso INT AUTO_INCREMENT PRIMARY KEY,
     nombre_curso VARCHAR(100) UNIQUE NOT NULL,
-    estado VARCHAR(20) DEFAULT 'Activo'
+    estado VARCHAR(20) DEFAULT 'Activo',
+    id_director INT NULL,
+	FOREIGN KEY (id_director) REFERENCES usuarios(id_usuario)
 );
 
 -- 4. RELACIONES ACADÉMICAS E INTERMEDIAS
