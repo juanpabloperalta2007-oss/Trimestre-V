@@ -48,6 +48,7 @@ import LlamarLista from "./pages/Docente/LlamarLista";
 import InicioCoordinador from "./pages/Coordinador/InicioCoordinador";
 import GestionExcusasCoord from "./pages/Coordinador/GestionExcusasCoord";
 import Cursos from "./pages/Coordinador/Cursos";
+import AsignaturasCoordinador from "./pages/Coordinador/AsignaturasCoordinador"; // <-- ¡IMPORTACIÓN AÑADIDA!
 
 // ==============================
 // ACUDIENTE
@@ -394,7 +395,7 @@ function App() {
           {/* ==========================================
               LLAMAR LISTA
               SOLO DOCENTE - CARGO 3
-          ========================================== */}
+         ========================================== */}
 
           <Route
             path="/llamar-lista"
@@ -433,6 +434,15 @@ function App() {
             element={
               <RutaProtegida cargoPermitido={2}>
                 <Cursos />
+              </RutaProtegida>
+            }
+          />
+
+          <Route
+            path="/asignaturas-coordinador"
+            element={
+              <RutaProtegida cargoPermitido={2}>
+                <AsignaturasCoordinador />
               </RutaProtegida>
             }
           />

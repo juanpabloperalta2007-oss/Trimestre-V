@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 function SidebarCoord() {
     return (
-        <div className="col-md-3 col-lg-2 bg-white p-3 border-end shadow-sm">
+        <div className="col-md-3 col-lg-2 bg-white p-3 border-end shadow-sm h-100">
 
             {/* TÍTULO */}
             <h6 className="text-uppercase text-muted fw-bold mb-3 px-2">
@@ -39,7 +39,7 @@ function SidebarCoord() {
                     Cursos
                 </Link>
 
-                {/* GESTIÓN DE MATERIAS (NUEVO) */}
+                {/* GESTIÓN DE MATERIAS */}
                 <Link
                     to="/asignaturas-coordinador"
                     className="list-group-item list-group-item-action"

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import {
   obtenerCursos,
-  obtenerInasistencias,
+  obtenerAsignaturasPorCursoDocente,
+  obtenerListaAsistencia,
 } from "../services/api";
 
 function CursosTable() {
@@ -10,7 +11,6 @@ function CursosTable() {
   // ESTADOS PRINCIPALES
   // =====================================================
   const [cursos, setCursos] = useState([]);
-  const [inasistencias, setInasistencias] = useState([]);
   const [cursoSeleccionado, setCursoSeleccionado] = useState("");
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
@@ -23,6 +23,15 @@ function CursosTable() {
   const [directorActual, setDirectorActual] = useState("");
   const [nuevoCurso, setNuevoCurso] = useState("");
   const [directorNuevoCurso, setDirectorNuevoCurso] = useState("");
+
+  // =====================================================
+  // ESTADOS DE MATERIAS Y AUDITORÍA DE INASISTENCIAS
+  // =====================================================
+  const [materiasCurso, setMateriasCurso] = useState([]);
+  const [materiaActiva, setMateriaActiva] = useState(null);
+  const [fechaConsulta, setFechaConsulta] = useState(new Date().toISOString().split("T")[0]);
+  const [detalleAsistencias, setDetalleAsistencias] = useState([]);
+  const [cargandoDetalle, setCargandoDetalle] = useState(false);
 
   // =====================================================
   // CARGAR DATOS
@@ -63,27 +72,6 @@ function CursosTable() {
       console.error("ERROR AL CARGAR CURSOS:", error);
       setCursos([]);
       setError("No fue posible cargar los cursos.");
-    }
-
-    // OBTENER INASISTENCIAS
-    try {
-      const respuestaInasistencias = await obtenerInasistencias();
-      let inasistenciasProcesadas = [];
-
-      if (Array.isArray(respuestaInasistencias)) {
-        inasistenciasProcesadas = respuestaInasistencias;
-      } else if (respuestaInasistencias && Array.isArray(respuestaInasistencias.alertas)) {
-        inasistenciasProcesadas = respuestaInasistencias.alertas;
-      } else if (respuestaInasistencias && Array.isArray(respuestaInasistencias.asistencias)) {
-        inasistenciasProcesadas = respuestaInasistencias.asistencias;
-      } else if (respuestaInasistencias && Array.isArray(respuestaInasistencias.data)) {
-        inasistenciasProcesadas = respuestaInasistencias.data;
-      }
-
-      setInasistencias(inasistenciasProcesadas);
-    } catch (error) {
-      console.error("ERROR AL CARGAR INASISTENCIAS:", error);
-      setInasistencias([]);
     }
 
     setCargando(false);
@@ -129,22 +117,64 @@ function CursosTable() {
   // =====================================================
   const handleSeleccionarCurso = async (idCurso) => {
     setCursoSeleccionado(idCurso);
+    setMateriaActiva(null);
+    setDetalleAsistencias([]);
 
     if (!idCurso) {
       setEstudiantes([]);
       setDirectorActual("");
+      setMateriasCurso([]);
       return;
     }
 
     const cursoObjeto = cursos.find((c) => String(obtenerIdCurso(c)) === String(idCurso));
     setDirectorActual(cursoObjeto?.id_director || "");
 
+    // 1. Obtener estudiantes matriculados
     try {
       const res = await axios.get(`http://localhost:5000/api/cursos/${idCurso}/estudiantes`);
       setEstudiantes(res.data);
     } catch (err) {
       console.error("Error al obtener estudiantes del curso:", err);
       setEstudiantes([]);
+    }
+
+    // 2. Obtener materias asignadas a este curso
+    try {
+      const resMaterias = await obtenerAsignaturasPorCursoDocente(idCurso);
+      setMateriasCurso(Array.isArray(resMaterias) ? resMaterias : []);
+    } catch (err) {
+      console.error("Error al obtener materias del curso:", err);
+      setMateriasCurso([]);
+    }
+  };
+
+  // =====================================================
+  // AUDITORÍA DE INASISTENCIAS POR MATERIA
+  // =====================================================
+  const abrirDetalleMateria = async (materia) => {
+    setMateriaActiva(materia);
+    cargarAsistenciasMateria(materia.id_asignatura_curso, fechaConsulta);
+  };
+
+  const cargarAsistenciasMateria = async (idAsignaturaCurso, fecha) => {
+    setCargandoDetalle(true);
+    try {
+      const res = await obtenerListaAsistencia(idAsignaturaCurso, fecha);
+      setDetalleAsistencias(Array.isArray(res) ? res : []);
+    } catch (error) {
+      console.error("Error al obtener detalle de inasistencias:", error);
+      setDetalleAsistencias([]);
+    } finally {
+      setCargandoDetalle(false);
+    }
+  };
+
+  const handleCambioFecha = (e) => {
+    const nuevaFecha = e.target.value;
+    setFechaConsulta(nuevaFecha);
+    if (materiaActiva) {
+      cargarAsistenciasMateria(materiaActiva.id_asignatura_curso, nuevaFecha);
     }
   };
 
@@ -158,45 +188,6 @@ function CursosTable() {
   function obtenerNombreCurso(curso) {
     return curso.nombre_curso ?? curso.nombre ?? curso.descripcion ?? `Curso ${obtenerIdCurso(curso)}`;
   }
-
-  function perteneceAlCurso(inasistencia, cursoSeleccionado) {
-    if (!cursoSeleccionado) return false;
-
-    const curso =
-      inasistencia.curso ??
-      inasistencia.nombre_curso ??
-      inasistencia.id_curso ??
-      inasistencia.id_asignatura_curso ??
-      "";
-
-    const cursosDeLaInasistencia = String(curso)
-      .split(",")
-      .map((valor) => valor.trim().toLowerCase())
-      .filter(Boolean);
-
-    const seleccionado = String(cursoSeleccionado).trim().toLowerCase();
-
-    if (cursosDeLaInasistencia.includes(seleccionado)) {
-      return true;
-    }
-
-    const cursoSeleccionadoObjeto = cursos.find(
-      (cursoActual) => String(obtenerIdCurso(cursoActual)) === String(cursoSeleccionado)
-    );
-
-    if (cursoSeleccionadoObjeto) {
-      const nombre = obtenerNombreCurso(cursoSeleccionadoObjeto).trim().toLowerCase();
-      if (cursosDeLaInasistencia.includes(nombre)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  const listaInasistencias = inasistencias.filter((inasistencia) =>
-    perteneceAlCurso(inasistencia, cursoSeleccionado)
-  );
 
   return (
     <>
@@ -250,7 +241,7 @@ function CursosTable() {
       </div>
 
       {/* =================================================
-          CARD DE CURSOS
+          CARD DE CURSOS Y DIRECTOR
       ================================================= */}
       <div className="card shadow mb-4">
         <div className="card-header bg-primary text-white">
@@ -351,93 +342,105 @@ function CursosTable() {
       )}
 
       {/* =================================================
-          INASISTENCIAS DEL CURSO
+          INASISTENCIAS POR MATERIA DEL CURSO (TARJETAS)
       ================================================= */}
-      {cursoSeleccionado && (
-        <div className="card shadow">
+      {cursoSeleccionado && !materiaActiva && (
+        <div className="card shadow mb-4">
           <div className="card-header bg-success text-white">
-            <div className="d-flex justify-content-between align-items-center">
-              <span>Inasistencias del curso</span>
-              <span className="badge bg-light text-success">{listaInasistencias.length}</span>
-            </div>
+            <h5 className="mb-0">Inasistencias por Materia del Curso</h5>
           </div>
-
           <div className="card-body">
-            {listaInasistencias.length === 0 ? (
-              <div className="alert alert-info mb-0">
-                No hay inasistencias registradas para este curso.
+            {materiasCurso.length === 0 ? (
+              <div className="alert alert-warning mb-0 text-center">
+                Este curso no tiene materias ni docentes asignados todavía.
               </div>
             ) : (
+              <div className="row">
+                {materiasCurso.map((m) => (
+                  <div className="col-md-4 mb-3" key={m.id_asignatura_curso}>
+                    <div className="card shadow-sm border-0 h-100">
+                      <div className="card-body d-flex flex-column justify-content-between">
+                        <div>
+                          <h5 className="fw-bold text-primary">{m.nombre_asignatura}</h5>
+                          <p className="text-muted small mb-2">Área: {m.nombre_area || "General"}</p>
+                          <hr />
+                        </div>
+                        <button 
+                          className="btn btn-outline-success w-100 mt-2"
+                          onClick={() => abrirDetalleMateria(m)}
+                        >
+                          🔍 Revisar Inasistencias
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* =================================================
+          VISTA DETALLADA DE INASISTENCIAS (AL CLIC EN UNA MATERIA)
+      ================================================= */}
+      {cursoSeleccionado && materiaActiva && (
+        <div className="card shadow mb-4">
+          <div className="card-header bg-success text-white d-flex justify-content-between align-items-center py-3">
+            <h5 className="mb-0">Materia: {materiaActiva.nombre_asignatura}</h5>
+            <button className="btn btn-light btn-sm fw-bold" onClick={() => setMateriaActiva(null)}>
+              ← Volver a las Materias
+            </button>
+          </div>
+          <div className="card-body">
+            <div className="row mb-4 align-items-center">
+              <div className="col-md-4">
+                <label className="form-label fw-bold">Filtrar por Fecha:</label>
+                <input 
+                  type="date" 
+                  className="form-control" 
+                  value={fechaConsulta} 
+                  onChange={handleCambioFecha} 
+                />
+              </div>
+            </div>
+
+            {cargandoDetalle ? (
+              <div className="text-center py-4 text-muted fw-bold">Cargando registros...</div>
+            ) : (
               <div className="table-responsive">
-                <table className="table table-hover align-middle">
+                <table className="table table-striped table-bordered align-middle">
                   <thead className="table-light">
                     <tr>
                       <th>Documento</th>
                       <th>Estudiante</th>
-                      <th>Curso</th>
-                      <th className="text-center">Inasistencias</th>
-                      <th className="text-center">Tardanzas</th>
-                      <th>Estado</th>
+                      <th className="text-center">Estado (Asistencia)</th>
+                      <th>Observaciones</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {listaInasistencias.map((inasistencia) => {
-                      const id = inasistencia.id_estudiante ?? inasistencia.id ?? Math.random();
-                      const nombre =
-                        inasistencia.estudiante ??
-                        inasistencia.nombre_estudiante ??
-                        "Estudiante";
-                      const documento =
-                        inasistencia.documento ??
-                        inasistencia.numero_documento ??
-                        "Sin documento";
-                      const cantidad = Number(inasistencia.inasistencias ?? 0);
-                      const tardanzas = Number(inasistencia.tardanzas ?? 0);
-                      const estado = inasistencia.estado ?? "Seguimiento";
-
-                      return (
-                        <tr key={id}>
-                          <td>{documento}</td>
-                          <td>
-                            <strong>{nombre}</strong>
-                          </td>
-                          <td>
-                            <span className="badge bg-info text-dark">
-                              {inasistencia.curso ?? "Sin curso"}
-                            </span>
-                          </td>
+                    {detalleAsistencias.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="text-center text-muted py-3">
+                          No hay registros de asistencia para esta fecha en esta materia.
+                        </td>
+                      </tr>
+                    ) : (
+                      detalleAsistencias.map((est) => (
+                        <tr key={est.id_estudiante}>
+                          <td>{est.numero_documento}</td>
+                          <td className="fw-semibold">{est.nombre_completo}</td>
                           <td className="text-center">
-                            <span
-                              className={
-                                cantidad >= 10
-                                  ? "badge bg-danger fs-6"
-                                  : cantidad >= 5
-                                  ? "badge bg-warning text-dark fs-6"
-                                  : "badge bg-secondary fs-6"
-                              }
-                            >
-                              {cantidad}
-                            </span>
+                            {est.estado === 'A' && <span className="badge bg-danger">Ausente (Falta)</span>}
+                            {est.estado === 'P' && <span className="badge bg-success">Presente</span>}
+                            {est.estado === 'T' && <span className="badge bg-warning text-dark">Tardanza</span>}
+                            {est.estado === 'J' && <span className="badge bg-info text-dark">Justificado</span>}
+                            {!est.estado && <span className="badge bg-secondary">Sin registrar</span>}
                           </td>
-                          <td className="text-center">
-                            <span className="badge bg-secondary fs-6">{tardanzas}</span>
-                          </td>
-                          <td>
-                            <span
-                              className={
-                                estado === "Pérdida"
-                                  ? "badge bg-danger"
-                                  : estado === "Exceso"
-                                  ? "badge bg-warning text-dark"
-                                  : "badge bg-secondary"
-                              }
-                            >
-                              {estado}
-                            </span>
-                          </td>
+                          <td>{est.observaciones || "Sin observaciones"}</td>
                         </tr>
-                      );
-                    })}
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

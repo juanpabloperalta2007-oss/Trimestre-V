@@ -64,7 +64,11 @@ export const actualizarEstadoAsignaturaCurso = async (datos) => {
 };
 
 export const asignarMateriaACurso = async (datos) => {
-    const respuesta = await API.post("/asignaturas/asignar", datos);
+    const respuesta = await API.post("/asignaturas/asignar", {
+        id_asignatura: Number(datos.id_asignatura),
+        id_curso: Number(datos.id_curso),
+        id_docente: datos.id_docente ? Number(datos.id_docente) : null
+    });
     return respuesta.data;
 };
 

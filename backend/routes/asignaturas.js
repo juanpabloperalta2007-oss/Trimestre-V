@@ -25,21 +25,25 @@ router.get("/docente-curso/:id_usuario", async (req, res) => {
 });
 
 // ==========================================
-// 2. OBTENER LAS MATERIAS ASIGNADAS A UN CURSO ESPECÍFICO (Para el Docente)
+// 2. OBTENER LAS MATERIAS ASIGNADAS A UN CURSO ESPECÍFICO
 // ==========================================
 router.get("/curso/:id_curso", async (req, res) => {
     try {
         const { id_curso } = req.params;
         const query = `
             SELECT 
+                ac.id_asignatura_curso,
                 a.id_asignatura,
                 a.nombre_asignatura,
                 ar.nombre_area,
-                ac.estado,
+                ac.id_docente,
+                p.id_usuario,
                 ac.id_curso
             FROM asignaturas_cursos ac
-            INNER JOIN asignaturas a ON ac.id_asignatura = a.id_asignatura
+            JOIN asignaturas a ON ac.id_asignatura = a.id_asignatura
             LEFT JOIN areas ar ON a.id_area = ar.id_area
+            JOIN docentes d ON ac.id_docente = d.id_docente
+            JOIN personas p ON d.id_persona = p.id_persona
             WHERE ac.id_curso = ?
             ORDER BY a.nombre_asignatura ASC
         `;
@@ -52,7 +56,7 @@ router.get("/curso/:id_curso", async (req, res) => {
 });
 
 // ==========================================
-// 3. OBTENER ASIGNATURAS GENERALES (Con paginación y búsqueda para el Coordinador)
+// 3. OBTENER ASIGNATURAS GENERALES (Para el Coordinador)
 // ==========================================
 router.get("/", async (req, res) => {
     try {
@@ -98,56 +102,72 @@ router.get("/", async (req, res) => {
 });
 
 // ==========================================
-// 4. ACTUALIZAR EL ESTADO DE LA MATERIA PARA UN CURSO ESPECÍFICO (Docente)
-// ==========================================
-router.put("/curso-estado", async (req, res) => {
-    try {
-        const { id_asignatura, id_curso, estado } = req.body;
-        
-        const query = `
-            UPDATE asignaturas_cursos 
-            SET estado = ? 
-            WHERE id_asignatura = ? AND id_curso = ?
-        `;
-        const [result] = await pool.query(query, [estado, id_asignatura, id_curso]);
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ error: "No se encontró la asignación de la materia para este curso." });
-        }
-
-        res.json({ mensaje: "Estado de la materia actualizado correctamente" });
-    } catch (error) {
-        console.error("Error al actualizar estado:", error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// ==========================================
-// 5. ASIGNAR MATERIA A UN CURSO (Para el Coordinador)
+// 4. ASIGNAR MATERIA Y DOCENTE A UN CURSO
 // ==========================================
 router.post("/asignar", async (req, res) => {
     try {
-        const { id_asignatura, id_curso } = req.body;
+        const { id_asignatura, id_curso, id_docente } = req.body;
         
         if (!id_asignatura || !id_curso) {
             return res.status(400).json({ error: "Debe seleccionar la asignatura y el curso." });
         }
 
-        const [existing] = await pool.query(
-            "SELECT * FROM asignaturas_cursos WHERE id_asignatura = ? AND id_curso = ?",
-            [id_asignatura, id_curso]
-        );
+        const inputId = Number(id_docente);
+        let idDocenteReal = null;
 
-        if (existing.length > 0) {
-            return res.status(400).json({ error: "Esta asignatura ya está asignada a este curso." });
+        if (inputId) {
+            const [docRows] = await pool.query(
+                `SELECT d.id_docente 
+                 FROM docentes d
+                 LEFT JOIN personas p ON d.id_persona = p.id_persona
+                 WHERE d.id_docente = ? OR p.id_persona = ? OR p.id_usuario = ?`,
+                [inputId, inputId, inputId]
+            );
+
+            if (docRows.length > 0) {
+                idDocenteReal = docRows[0].id_docente;
+            } else {
+                const [personaRows] = await pool.query(
+                    "SELECT id_persona FROM personas WHERE id_persona = ? OR id_usuario = ?",
+                    [inputId, inputId]
+                );
+
+                if (personaRows.length > 0) {
+                    const [nuevoDoc] = await pool.query(
+                        "INSERT INTO docentes (id_persona) VALUES (?)",
+                        [personaRows[0].id_persona]
+                    );
+                    idDocenteReal = nuevoDoc.insertId;
+                }
+            }
         }
 
-        await pool.query(
-            "INSERT INTO asignaturas_cursos (id_asignatura, id_curso, estado) VALUES (?, ?, 'Activo')",
+        if (!idDocenteReal) {
+            return res.status(400).json({ error: "El usuario seleccionado no existe en el sistema." });
+        }
+
+        const [existing] = await pool.query(
+            "SELECT id_asignatura_curso FROM asignaturas_cursos WHERE id_asignatura = ? AND id_curso = ?",
             [id_asignatura, id_curso]
         );
 
-        res.status(201).json({ mensaje: "Materia asignada al curso exitosamente" });
+        let result;
+        if (existing.length > 0) {
+            [result] = await pool.query(
+                "UPDATE asignaturas_cursos SET id_docente = ? WHERE id_asignatura = ? AND id_curso = ?",
+                [idDocenteReal, id_asignatura, id_curso]
+            );
+        } else {
+            [result] = await pool.query(
+                "INSERT INTO asignaturas_cursos (id_asignatura, id_curso, id_docente) VALUES (?, ?, ?)",
+                [id_asignatura, id_curso, idDocenteReal]
+            );
+        }
+
+        res.status(201).json({ 
+            mensaje: "Materia y docente asignados al curso exitosamente",
+            id_asignatura_curso: result.insertId || result.affectedRows
+        });
     } catch (error) {
         console.error("Error al asignar materia al curso:", error);
         res.status(500).json({ error: error.message });
@@ -155,7 +175,7 @@ router.post("/asignar", async (req, res) => {
 });
 
 // ==========================================
-// 6. CREAR ASIGNATURA GLOBAL (Para el módulo del Coordinador)
+// 5. CREAR ASIGNATURA GLOBAL
 // ==========================================
 router.post("/", async (req, res) => {
     try {
@@ -176,7 +196,7 @@ router.post("/", async (req, res) => {
 });
 
 // ==========================================
-// 7. ELIMINAR ASIGNATURA
+// 6. ELIMINAR ASIGNATURA
 // ==========================================
 router.delete("/:id", async (req, res) => {
     try {
@@ -186,6 +206,48 @@ router.delete("/:id", async (req, res) => {
         if (result.affectedRows === 0) return res.status(404).json({ error: "Asignatura no encontrada" });
         res.json({ mensaje: "Asignatura eliminada exitosamente" });
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==========================================
+// 7. OBTENER TODAS LAS MATERIAS Y CURSOS ASIGNADOS AL DOCENTE (Blindado)
+// ==========================================
+router.get("/docente/:id_usuario", async (req, res) => {
+    try {
+        const { id_usuario } = req.params;
+        console.log("=== BUSCANDO MATERIAS PARA ID_USUARIO:", id_usuario);
+
+        const query = `
+            SELECT DISTINCT
+                ac.id_asignatura_curso,
+                a.id_asignatura,
+                COALESCE(a.nombre_asignatura, 'Sin asignatura') AS nombre_asignatura,
+                c.id_curso,
+                COALESCE(c.nombre_curso, CONCAT('Curso ', c.id_curso)) AS nombre_curso,
+                ar.nombre_area
+            FROM asignaturas_cursos ac
+            LEFT JOIN docentes d ON ac.id_docente = d.id_docente
+            LEFT JOIN personas p ON d.id_persona = p.id_persona
+            LEFT JOIN asignaturas a ON ac.id_asignatura = a.id_asignatura
+            LEFT JOIN cursos c ON ac.id_curso = c.id_curso
+            LEFT JOIN areas ar ON a.id_area = ar.id_area
+            WHERE p.id_usuario = ? 
+               OR p.id_persona = ? 
+               OR ac.id_docente IN (
+                   SELECT d2.id_docente 
+                   FROM docentes d2 
+                   JOIN personas p2 ON d2.id_persona = p2.id_persona 
+                   WHERE p2.id_usuario = ? OR p2.id_persona = ?
+               )
+            ORDER BY c.nombre_curso ASC, a.nombre_asignatura ASC
+        `;
+
+        const [rows] = await pool.query(query, [id_usuario, id_usuario, id_usuario, id_usuario]);
+        console.log("Materias encontradas y enviadas al frontend:", rows);
+        res.json(rows);
+    } catch (error) {
+        console.error("Error al obtener asignaturas del docente:", error);
         res.status(500).json({ error: error.message });
     }
 });
