@@ -10,11 +10,9 @@ function SidebarDocen() {
                 padding: "0 16px"
             }}
         >
-
             {/* ==============================
                 TÍTULO DEL MENÚ
             ============================== */}
-
             <div className="pt-3 pb-2">
                 <h5
                     className="fw-bold text-secondary"
@@ -27,11 +25,9 @@ function SidebarDocen() {
                 </h5>
             </div>
 
-
             {/* ==============================
                 INICIO
             ============================== */}
-
             <div
                 style={{
                     borderBottom: "1px solid #dee2e6"
@@ -49,42 +45,16 @@ function SidebarDocen() {
                 </Link>
             </div>
 
-
-            {/* ==============================
-                REGISTRAR MATERIAS
-            ============================== */}
-
-            <div
-                style={{
-                    borderBottom: "1px solid #dee2e6"
-                }}
-            >
-                <Link
-                    to="/materias"
-                    className="nav-link text-dark"
-                    style={{
-                        padding: "10px 15px"
-                    }}
-                >
-                    <i className="bi bi-journal-plus me-2"></i>
-                    Registrar Materias
-                </Link>
-            </div>
-
-
             {/* ==============================
                 CONSULTAR MATERIAS
-                RUTA CORRECTA:
-                /materias-agregadas
             ============================== */}
-
             <div
                 style={{
                     borderBottom: "1px solid #dee2e6"
                 }}
             >
                 <Link
-                    to="/materias-agregadas"
+                    to="/consultar-materias"
                     className="nav-link text-dark"
                     style={{
                         padding: "10px 15px"
@@ -95,11 +65,9 @@ function SidebarDocen() {
                 </Link>
             </div>
 
-
             {/* ==============================
                 HORARIOS
             ============================== */}
-
             <div
                 style={{
                     borderBottom: "1px solid #dee2e6"
@@ -117,12 +85,9 @@ function SidebarDocen() {
                 </Link>
             </div>
 
-
             {/* ==============================
                 LLAMAR LISTA
-                NUEVA FUNCIÓN
             ============================== */}
-
             <div
                 style={{
                     borderBottom: "1px solid #dee2e6"
@@ -140,11 +105,9 @@ function SidebarDocen() {
                 </Link>
             </div>
 
-
             {/* ==============================
                 ALERTAS
             ============================== */}
-
             <div
                 style={{
                     borderBottom: "1px solid #dee2e6"
@@ -162,11 +125,9 @@ function SidebarDocen() {
                 </Link>
             </div>
 
-
             {/* ==============================
                 NOTIFICACIONES
             ============================== */}
-
             <div
                 style={{
                     borderBottom: "1px solid #dee2e6"
@@ -184,11 +145,9 @@ function SidebarDocen() {
                 </Link>
             </div>
 
-
             {/* ==============================
                 REPORTES
             ============================== */}
-
             <div
                 style={{
                     borderBottom: "1px solid #dee2e6"
@@ -205,7 +164,6 @@ function SidebarDocen() {
                     Reportes
                 </Link>
             </div>
-
         </div>
     );
 }

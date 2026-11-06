@@ -36,7 +36,6 @@ import ConsultarHorario from "./pages/Docente/ConsultarHorario";
 import Horario from "./pages/Docente/Horario";
 import ConsultarMaterias from "./pages/Docente/ConsultarMaterias";
 import MateriasAgregadas from "./pages/Docente/MateriasAgregadas";
-import Materias from "./pages/Docente/Materias";
 import Alertas from "./pages/Docente/Alertas";
 import Notificaciones from "./pages/Docente/Notificaciones";
 import Reportes from "./pages/Docente/Reportes";
@@ -48,7 +47,7 @@ import LlamarLista from "./pages/Docente/LlamarLista";
 import InicioCoordinador from "./pages/Coordinador/InicioCoordinador";
 import GestionExcusasCoord from "./pages/Coordinador/GestionExcusasCoord";
 import Cursos from "./pages/Coordinador/Cursos";
-import AsignaturasCoordinador from "./pages/Coordinador/AsignaturasCoordinador"; // <-- ¡IMPORTACIÓN AÑADIDA!
+import AsignaturasCoordinador from "./pages/Coordinador/AsignaturasCoordinador";
 
 // ==============================
 // ACUDIENTE
@@ -65,12 +64,8 @@ import GenerarExcusaAcud from "./pages/Acudiente/GenerarExcusaAcud";
 // ======================================================
 
 function RutaProtegida({ children, cargoPermitido }) {
-
   const usuarioRaw = localStorage.getItem("usuario");
 
-  // ------------------------------------------
-  // NO EXISTE USUARIO
-  // ------------------------------------------
   if (
     !usuarioRaw ||
     usuarioRaw === "undefined" ||
@@ -81,43 +76,24 @@ function RutaProtegida({ children, cargoPermitido }) {
 
   let usuario;
 
-  // ------------------------------------------
-  // INTENTAR LEER USUARIO
-  // ------------------------------------------
   try {
     usuario = JSON.parse(usuarioRaw);
   } catch (error) {
-
-    console.error(
-      "Error al leer usuario de localStorage:",
-      error
-    );
-
+    console.error("Error al leer usuario de localStorage:", error);
     localStorage.removeItem("usuario");
-
     return <Navigate to="/" replace />;
   }
 
-  // ------------------------------------------
-  // VERIFICAR CARGO
-  // ------------------------------------------
   if (cargoPermitido) {
-
-    const cargoUsuario = parseInt(
-      usuario?.id_cargo,
-      10
-    );
+    const cargoUsuario = parseInt(usuario?.id_cargo, 10);
 
     if (cargoUsuario !== cargoPermitido) {
-
       console.error(
-        "Acceso denegado.",
-        "Cargo del usuario:",
+        "Acceso denegado. Cargo del usuario:",
         cargoUsuario,
         "Cargo requerido:",
         cargoPermitido
       );
-
       return <Navigate to="/" replace />;
     }
   }
@@ -131,68 +107,28 @@ function RutaProtegida({ children, cargoPermitido }) {
 // ======================================================
 
 function App() {
-
   const [mensajeBackend, setMensajeBackend] = useState("");
 
-
-  // ====================================================
-  // COMPROBAR CONEXIÓN CON BACKEND
-  // ====================================================
-
   useEffect(() => {
-
     fetch("http://localhost:5000/api/mensaje")
-
       .then((res) => {
-
         if (!res.ok) {
-
-          throw new Error(
-            `Error HTTP ${res.status}`
-          );
-
+          throw new Error(`Error HTTP ${res.status}`);
         }
-
         return res.json();
-
       })
-
       .then((data) => {
-
-        setMensajeBackend(
-          data.mensaje || ""
-        );
-
+        setMensajeBackend(data.mensaje || "");
       })
-
       .catch((error) => {
-
-        console.error(
-          "Error al conectar con el backend:",
-          error
-        );
-
+        console.error("Error al conectar con el backend:", error);
       });
-
   }, []);
 
-
-  // ====================================================
-  // RENDER
-  // ====================================================
-
   return (
-
     <BrowserRouter>
-
       <AuthProvider>
-
-        {/* ============================================
-            MENSAJE DE CONEXIÓN CON BACKEND
-        ============================================ */}
-
         {mensajeBackend && (
-
           <div
             style={{
               background: "#4caf50",
@@ -204,45 +140,20 @@ function App() {
           >
             Conexión Backend: {mensajeBackend}
           </div>
-
         )}
 
-
-        {/* ============================================
-            RUTAS
-        ============================================ */}
-
         <Routes>
-
           {/* ==========================================
               AUTENTICACIÓN
           ========================================== */}
-
-          <Route
-            path="/"
-            element={<Login />}
-          />
-
-          <Route
-            path="/registro"
-            element={<Registro />}
-          />
-
-          <Route
-            path="/enviar_pin"
-            element={<EnviarPin />}
-          />
-
-          <Route
-            path="/nueva_contrasena"
-            element={<NuevaContrasena />}
-          />
-
+          <Route path="/" element={<Login />} />
+          <Route path="/registro" element={<Registro />} />
+          <Route path="/enviar_pin" element={<EnviarPin />} />
+          <Route path="/nueva_contrasena" element={<NuevaContrasena />} />
 
           {/* ==========================================
               ADMINISTRADOR
           ========================================== */}
-
           <Route
             path="/admin"
             element={
@@ -251,7 +162,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/vista_admin"
             element={
@@ -260,7 +170,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/registrar_usuario"
             element={
@@ -269,7 +178,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/editar_usuario"
             element={
@@ -278,7 +186,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/ver_usuario"
             element={
@@ -287,7 +194,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/permisos"
             element={
@@ -297,11 +203,9 @@ function App() {
             }
           />
 
-
           {/* ==========================================
               DOCENTE
           ========================================== */}
-
           <Route
             path="/docente"
             element={
@@ -310,7 +214,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/inicio"
             element={
@@ -319,7 +222,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/consultar-horario"
             element={
@@ -328,7 +230,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/horario"
             element={
@@ -337,7 +238,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/consultar-materias"
             element={
@@ -346,7 +246,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/materias-agregadas"
             element={
@@ -355,16 +254,15 @@ function App() {
               </RutaProtegida>
             }
           />
-
+          {/* Ambas rutas apuntan de forma limpia a ConsultarMaterias para evitar confusiones */}
           <Route
             path="/materias"
             element={
               <RutaProtegida cargoPermitido={3}>
-                <Materias />
+                <ConsultarMaterias />
               </RutaProtegida>
             }
           />
-
           <Route
             path="/alertas"
             element={
@@ -373,7 +271,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/notificaciones"
             element={
@@ -382,7 +279,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/reportes"
             element={
@@ -391,26 +287,20 @@ function App() {
               </RutaProtegida>
             }
           />
-
-          {/* ==========================================
-              LLAMAR LISTA
-              SOLO DOCENTE - CARGO 3
-         ========================================== */}
-
           <Route
             path="/llamar-lista"
             element={
               <RutaProtegida cargoPermitido={3}>
-                <LlamarLista />
+                <RutaProtegida cargoPermitido={3}>
+                  <LlamarLista />
+                </RutaProtegida>
               </RutaProtegida>
             }
           />
 
-
           {/* ==========================================
               COORDINADOR
           ========================================== */}
-
           <Route
             path="/coordinador"
             element={
@@ -419,7 +309,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/gestion-excusas-coordinador"
             element={
@@ -428,7 +317,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/cursos"
             element={
@@ -437,7 +325,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/asignaturas-coordinador"
             element={
@@ -447,11 +334,9 @@ function App() {
             }
           />
 
-
           {/* ==========================================
               ACUDIENTE
           ========================================== */}
-
           <Route
             path="/acudiente"
             element={
@@ -460,7 +345,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/excusas"
             element={
@@ -469,7 +353,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/consultar-estudiante"
             element={
@@ -478,7 +361,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/estadistica-mensual"
             element={
@@ -487,7 +369,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/generar-excusa"
             element={
@@ -496,7 +377,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/acudiente/estadisticas"
             element={
@@ -505,7 +385,6 @@ function App() {
               </RutaProtegida>
             }
           />
-
           <Route
             path="/acudiente/generar-excusa"
             element={
@@ -515,25 +394,15 @@ function App() {
             }
           />
 
-
           {/* ==========================================
               RUTA NO EXISTENTE
           ========================================== */}
-
           <Route
             path="*"
-            element={
-              <Navigate
-                to="/"
-                replace
-              />
-            }
+            element={<Navigate to="/" replace />}
           />
-
         </Routes>
-
       </AuthProvider>
-
     </BrowserRouter>
   );
 }

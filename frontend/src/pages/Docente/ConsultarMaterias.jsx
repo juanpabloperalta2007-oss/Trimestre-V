@@ -2,52 +2,45 @@ import { useState, useEffect } from "react";
 import Header from "../../components/Header";
 import SidebarDocen from "../../components/SidebarDocen";
 import Footer from "../../components/Footer";
-import { obtenerCursoDocente, obtenerAsignaturasPorCursoDocente, actualizarEstadoAsignaturaCurso } from "../../services/api";
+import { obtenerAsignaturasPorCursoDocente } from "../../services/api";
 
 function ConsultarMaterias() {
-  const [cursoDocente, setCursoDocente] = useState(null);
-  const [asignaturas, setAsignaturas] = useState([]);
+  const [materias, setMaterias] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const usuarioLogueado = JSON.parse(localStorage.getItem("usuario"));
-    if (usuarioLogueado?.id_usuario) {
-      cargarDatos(usuarioLogueado.id_usuario);
+    const usuarioLogueado = JSON.parse(localStorage.getItem("usuario") || "{}");
+    const idUsuario = usuarioLogueado.id_usuario || usuarioLogueado.id || usuarioLogueado.id_persona;
+
+    if (idUsuario) {
+      cargarMateriasDocente(idUsuario);
     } else {
       setCargando(false);
+      setError("No se encontró el usuario en la sesión.");
     }
   }, []);
 
-  const cargarDatos = async (idUsuario) => {
+  const cargarMateriasDocente = async (idUsuario) => {
     try {
-      const curso = await obtenerCursoDocente(idUsuario);
-      setCursoDocente(curso);
-
-      if (curso?.id_curso) {
-        const listaMaterias = await obtenerAsignaturasPorCursoDocente(curso.id_curso);
-        setAsignaturas(listaMaterias);
+      setCargando(true);
+      setError("");
+      
+      const res = await obtenerAsignaturasPorCursoDocente(idUsuario);
+      
+      let lista = [];
+      if (Array.isArray(res)) {
+        lista = res;
+      } else if (res && Array.isArray(res.asignaturas)) {
+        lista = res.asignaturas;
       }
+
+      setMaterias(lista);
     } catch (err) {
       console.error("Error al cargar las materias asignadas:", err);
+      setError("No fue posible cargar las materias asignadas.");
     } finally {
       setCargando(false);
-    }
-  };
-
-  const cambiarEstadoMateria = async (idAsignatura, estadoActual) => {
-    const nuevoEstado = estadoActual === "Activo" ? "Inactivo" : "Activo";
-    try {
-      await actualizarEstadoAsignaturaCurso({
-        id_asignatura: idAsignatura,
-        id_curso: cursoDocente.id_curso,
-        estado: nuevoEstado
-      });
-      // Actualizamos localmente la vista
-      setAsignaturas(asignaturas.map(m => 
-        m.id_asignatura === idAsignatura ? { ...m, estado: nuevoEstado } : m
-      ));
-    } catch (error) {
-      alert("Error al actualizar el estado de la materia");
     }
   };
 
@@ -66,62 +59,85 @@ function ConsultarMaterias() {
   return (
     <div className="d-flex flex-column min-vh-100 bg-light w-100">
       <Header />
+
       <div className="container-fluid flex-grow-1 px-0">
         <div className="row g-0 min-vh-100">
           <SidebarDocen />
+
           <div className="col-md-9 col-lg-10 p-4">
-            <h2 className="fw-bold text-dark mb-4">Materias Asignadas a mi Curso</h2>
+            <h2 className="fw-bold text-dark mb-4">Consultar Materias y Cursos Asignados</h2>
 
-            {cursoDocente ? (
-              <>
-                <div className="alert alert-info shadow-sm mb-4">
-                  Curso Dirigido: <strong>{cursoDocente.nombre_curso}</strong> (Estas materias fueron asignadas por el coordinador).
-                </div>
+            <div className="alert alert-info shadow-sm mb-4">
+              ℹ️ Estas son las materias y cursos que te han sido asignados institucionalmente por el coordinador.
+            </div>
 
-                <div className="row">
-                  {asignaturas.map((mat) => (
-                    <div className="col-md-4 mb-3" key={mat.id_asignatura}>
-                      <div className="card shadow-sm h-100 border-0">
-                        <div className="card-body d-flex flex-column justify-content-between">
-                          <div>
-                            <h5 className="card-title text-primary">{mat.nombre_asignatura}</h5>
-                            <p className="card-text text-muted small">
-                              Área: {mat.nombre_area || "General"} <br />
-                              Estado: <span className={`badge bg-${mat.estado === 'Activo' ? 'success' : 'secondary'}`}>
-                                {mat.estado || "Activo"}
-                              </span>
-                            </p>
-                          </div>
-                          <div className="d-grid gap-2 mt-3">
-                            <button 
-                              className={`btn btn-sm btn-outline-${mat.estado === 'Activo' ? 'danger' : 'success'}`}
-                              onClick={() => cambiarEstadoMateria(mat.id_asignatura, mat.estado)}
-                            >
-                              {mat.estado === 'Activo' ? 'Desactivar para este curso' : 'Activar para este curso'}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {asignaturas.length === 0 && (
-                    <div className="col-12">
-                      <div className="alert alert-warning text-center">
-                        No tienes materias asignadas por el coordinador para este curso todavía.
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="alert alert-warning shadow-sm">
-                ⚠️ No tienes un curso asignado como director.
+            {error && (
+              <div className="alert alert-danger shadow-sm mb-4">
+                {error}
               </div>
             )}
+
+            <div className="card shadow-sm border-0">
+              <div className="card-header bg-primary text-white">
+                <h5 className="mb-0">Carga Académica Registrada</h5>
+              </div>
+              <div className="card-body p-0">
+                {materias.length === 0 ? (
+                  <div className="text-center py-5 text-muted">
+                    <i className="bi bi-journal-x fs-1 d-block mb-2"></i>
+                    No tienes materias o cursos asignados actualmente.
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table table-hover align-middle mb-0">
+                      <thead className="table-light">
+                        <tr>
+                          <th className="text-center">#</th>
+                          <th>Asignatura</th>
+                          <th>Área</th>
+                          <th className="text-center">Curso Asignado</th>
+                          <th className="text-center">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {materias.map((mat, index) => {
+                          const nombreCurso = mat.nombre_curso || mat.nombre || mat.grado || `Curso ${mat.id_curso || ""}`;
+                          const nombreMateria = mat.nombre_asignatura || "Sin nombre";
+                          const nombreArea = mat.nombre_area || "General";
+                          const estado = mat.estado || "Activo";
+
+                          return (
+                            <tr key={mat.id_asignatura_curso || index}>
+                              <td className="text-center fw-bold">{index + 1}</td>
+                              <td>
+                                <span className="fw-bold text-primary">{nombreMateria}</span>
+                              </td>
+                              <td>
+                                <span className="badge bg-secondary">{nombreArea}</span>
+                              </td>
+                              <td className="text-center">
+                                <span className="badge bg-success fs-6 px-3 py-2">
+                                  {nombreCurso}
+                                </span>
+                              </td>
+                              <td className="text-center">
+                                <span className={`badge bg-${estado === 'Activo' ? 'success' : 'secondary'}`}>
+                                  {estado}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
       <Footer />
     </div>
   );

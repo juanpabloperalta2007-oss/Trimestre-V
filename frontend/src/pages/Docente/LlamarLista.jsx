@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Layout from "../../components/Layout";
 import {
     obtenerListaAsistencia,
@@ -8,8 +8,13 @@ import {
 
 function LlamarLista() {
 
-    const [materiasDocente, setMateriasDocente] = useState([]);
+    const [todasLasAsignaciones, setTodasLasAsignaciones] = useState([]);
+    const [cursosDisponibles, setCursosDisponibles] = useState([]);
+    const [materiasDisponibles, setMateriasDisponibles] = useState([]);
+    
+    const [cursoSeleccionado, setCursoSeleccionado] = useState("");
     const [idAsignaturaCurso, setIdAsignaturaCurso] = useState("");
+    
     const [fecha, setFecha] = useState(
         new Date().toISOString().split("T")[0]
     );
@@ -41,10 +46,46 @@ function LlamarLista() {
                 listaMaterias = Object.values(res).find(val => Array.isArray(val)) || [];
             }
 
-            setMateriasDocente(listaMaterias);
+            setTodasLasAsignaciones(listaMaterias);
+
+            // Extraer cursos únicos para el primer selector
+            const cursosUnicos = [];
+            const mapCursos = new Map();
+            listaMaterias.forEach(mat => {
+                if (mat.id_curso && !mapCursos.has(mat.id_curso)) {
+                    mapCursos.set(mat.id_curso, true);
+                    cursosUnicos.push({ 
+                        id_curso: mat.id_curso, 
+                        nombre_curso: mat.nombre_curso || `Curso ${mat.id_curso}` 
+                    });
+                }
+            });
+            setCursosDisponibles(cursosUnicos);
+
         } catch (err) {
             console.error("Error al cargar materias asignadas:", err);
-            setMateriasDocente([]);
+            setTodasLasAsignaciones([]);
+            setCursosDisponibles([]);
+        }
+    };
+
+    // Manejar el cambio del selector de Curso
+    const handleCambiarCurso = (e) => {
+        const idCurso = e.target.value;
+        setCursoSeleccionado(idCurso);
+        setIdAsignaturaCurso(""); // Limpiar materia seleccionada
+        setEstudiantes([]); // Limpiar tabla de estudiantes
+        setMensaje("");
+        setError("");
+
+        if (idCurso) {
+            // Filtrar las materias que pertenecen a este curso
+            const materiasFiltradas = todasLasAsignaciones.filter(
+                (mat) => String(mat.id_curso) === String(idCurso)
+            );
+            setMateriasDisponibles(materiasFiltradas);
+        } else {
+            setMateriasDisponibles([]);
         }
     };
 
@@ -103,7 +144,7 @@ function LlamarLista() {
             const id = Number(idAsignaturaCurso);
 
             if (!Number.isInteger(id) || id <= 0) {
-                setError("Debe seleccionar una materia y curso válido.");
+                setError("Debe seleccionar un curso y una materia válida.");
                 return;
             }
 
@@ -276,33 +317,49 @@ function LlamarLista() {
                 </div>
                 <div className="card-body">
                     <div className="row">
-                        {/* MATERIA / CURSO (SELECTOR) */}
-                        <div className="col-md-6 mb-3">
+                        {/* SELECTOR 1: CURSO */}
+                        <div className="col-md-4 mb-3">
                             <label className="form-label fw-bold">
-                                Materia / Curso Asignado
+                                1. Seleccione el Curso
+                            </label>
+                            <select
+                                className="form-select"
+                                value={cursoSeleccionado}
+                                onChange={handleCambiarCurso}
+                            >
+                                <option value="">-- Seleccione curso --</option>
+                                {cursosDisponibles.map((curso) => (
+                                    <option key={curso.id_curso} value={curso.id_curso}>
+                                        {curso.nombre_curso}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* SELECTOR 2: MATERIA (Depende del Curso) */}
+                        <div className="col-md-4 mb-3">
+                            <label className="form-label fw-bold">
+                                2. Seleccione la Materia
                             </label>
                             <select
                                 className="form-select"
                                 value={idAsignaturaCurso}
                                 onChange={(e) => setIdAsignaturaCurso(e.target.value)}
+                                disabled={!cursoSeleccionado}
                             >
-                                <option value="">Seleccione una materia o curso...</option>
-                                {materiasDocente.map((m) => {
-                                    const nombreCurso = m.nombre_curso || "Sin curso";
-                                    const nombreMateria = m.nombre_asignatura || "Materia";
-                                    return (
-                                        <option key={m.id_asignatura_curso} value={m.id_asignatura_curso}>
-                                            {nombreMateria} - Curso: {nombreCurso}
-                                        </option>
-                                    );
-                                })}
+                                <option value="">-- Seleccione materia --</option>
+                                {materiasDisponibles.map((m) => (
+                                    <option key={m.id_asignatura_curso} value={m.id_asignatura_curso}>
+                                        {m.nombre_asignatura || "Materia"}
+                                    </option>
+                                ))}
                             </select>
                         </div>
 
                         {/* FECHA */}
-                        <div className="col-md-6 mb-3">
+                        <div className="col-md-4 mb-3">
                             <label className="form-label fw-bold">
-                                Fecha
+                                3. Fecha
                             </label>
                             <input
                                 type="date"
@@ -315,9 +372,9 @@ function LlamarLista() {
 
                     <button
                         type="button"
-                        className="btn btn-success w-100"
+                        className="btn btn-success w-100 mt-2"
                         onClick={cargarLista}
-                        disabled={cargando}
+                        disabled={cargando || !idAsignaturaCurso}
                     >
                         {cargando ? (
                             <>

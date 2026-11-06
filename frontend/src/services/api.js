@@ -53,8 +53,9 @@ export const obtenerAsignaturasPorCurso = async (idCurso) => {
     return respuesta.data;
 };
 
-export const obtenerAsignaturasPorCursoDocente = async (id_curso) => {
-    const respuesta = await API.get(`/asignaturas/curso/${id_curso}`);
+// CORREGIDO: Ahora consulta directamente las materias del docente por su id de usuario/docente
+export const obtenerAsignaturasPorCursoDocente = async (idUsuario) => {
+    const respuesta = await API.get(`/asignaturas/docente/${idUsuario}`);
     return respuesta.data;
 };
 
