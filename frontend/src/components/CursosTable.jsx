@@ -25,6 +25,17 @@ function CursosTable() {
   const [directorNuevoCurso, setDirectorNuevoCurso] = useState("");
 
   // =====================================================
+  // ESTADOS PARA MATRICULAR ESTUDIANTES
+  // =====================================================
+  const [mostrarModalMatricula, setMostrarModalMatricula] = useState(false);
+  const [documentoEstudiante, setDocumentoEstudiante] = useState("");
+  const [primerNombre, setPrimerNombre] = useState("");
+  const [segundoNombre, setSegundoNombre] = useState("");
+  const [primerApellido, setPrimerApellido] = useState("");
+  const [segundoApellido, setSegundoApellido] = useState("");
+  const [registrandoMatricula, setRegistrandoMatricula] = useState(false);
+
+  // =====================================================
   // ESTADOS DE MATERIAS Y AUDITORÍA DE INASISTENCIAS
   // =====================================================
   const [materiasCurso, setMateriasCurso] = useState([]);
@@ -54,7 +65,6 @@ function CursosTable() {
     setCargando(true);
     setError("");
 
-    // OBTENER CURSOS
     try {
       const respuestaCursos = await obtenerCursos();
       let cursosProcesados = [];
@@ -119,6 +129,7 @@ function CursosTable() {
     setCursoSeleccionado(idCurso);
     setMateriaActiva(null);
     setDetalleAsistencias([]);
+    setMostrarModalMatricula(false);
 
     if (!idCurso) {
       setEstudiantes([]);
@@ -131,13 +142,7 @@ function CursosTable() {
     setDirectorActual(cursoObjeto?.id_director || "");
 
     // 1. Obtener estudiantes matriculados
-    try {
-      const res = await axios.get(`http://localhost:5000/api/cursos/${idCurso}/estudiantes`);
-      setEstudiantes(res.data);
-    } catch (err) {
-      console.error("Error al obtener estudiantes del curso:", err);
-      setEstudiantes([]);
-    }
+    await cargarEstudiantesCurso(idCurso);
 
     // 2. Obtener materias asignadas a este curso
     try {
@@ -146,6 +151,72 @@ function CursosTable() {
     } catch (err) {
       console.error("Error al obtener materias del curso:", err);
       setMateriasCurso([]);
+    }
+  };
+
+  const cargarEstudiantesCurso = async (idCurso) => {
+    try {
+      const res = await axios.get(`http://localhost:5000/api/cursos/${idCurso}/estudiantes`);
+      let listaEstudiantes = Array.isArray(res.data) ? res.data : [];
+
+      // ORDENAR ALFABÉTICAMENTE POR PRIMER APELLIDO
+      listaEstudiantes.sort((a, b) => {
+        const apellidoA = (a.primer_apellido || "").toLowerCase();
+        const apellidoB = (b.primer_apellido || "").toLowerCase();
+        return apellidoA.localeCompare(apellidoB);
+      });
+
+      setEstudiantes(listaEstudiantes);
+    } catch (err) {
+      console.error("Error al obtener estudiantes del curso:", err);
+      setEstudiantes([]);
+    }
+  };
+
+  // =====================================================
+  // MATRICULAR ESTUDIANTE EN EL CURSO
+  // =====================================================
+  const handleMatricularEstudiante = async (e) => {
+    e.preventDefault();
+    if (!documentoEstudiante.trim() || !primerNombre.trim() || !primerApellido.trim()) {
+      alert("Por favor complete los campos obligatorios (Documento, Primer Nombre y Primer Apellido).");
+      return;
+    }
+
+    try {
+      setRegistrandoMatricula(true);
+
+      // Código de lista automático basado en la cantidad actual de estudiantes + 1
+      const codigoListaSugerido = estudiantes.length + 1;
+
+      const payload = {
+        tipo_documento: "tarjeta identidad",
+        numero_documento: documentoEstudiante.trim(),
+        primer_nombre: primerNombre.trim(),
+        segundo_nombre: segundoNombre.trim() || null,
+        primer_apellido: primerApellido.trim(),
+        segundo_apellido: segundoApellido.trim() || null,
+        codigo_lista: codigoListaSugerido,
+        id_curso: cursoSeleccionado
+      };
+
+      await axios.post(`http://localhost:5000/api/estudiantes`, payload);
+
+      alert("¡Estudiante matriculado exitosamente!");
+      setDocumentoEstudiante("");
+      setPrimerNombre("");
+      setSegundoNombre("");
+      setPrimerApellido("");
+      setSegundoApellido("");
+      setMostrarModalMatricula(false);
+
+      await cargarEstudiantesCurso(cursoSeleccionado);
+    } catch (err) {
+      console.error("Detalle completo del error:", err.response);
+      const mensajeServidor = err.response?.data?.error || err.response?.data?.mensaje || err.message;
+      alert(`Error al matricular: ${mensajeServidor}`);
+    } finally {
+      setRegistrandoMatricula(false);
     }
   };
 
@@ -307,25 +378,105 @@ function CursosTable() {
       ================================================= */}
       {cursoSeleccionado && (
         <div className="card shadow mb-4">
-          <div className="card-header bg-dark text-white">
+          <div className="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
             <h5 className="mb-0">Estudiantes Matriculados</h5>
+            <button 
+              className="btn btn-success btn-sm fw-bold"
+              onClick={() => setMostrarModalMatricula(!mostrarModalMatricula)}
+            >
+              {mostrarModalMatricula ? "✕ Cerrar Formulario" : "+ Matricular Estudiante"}
+            </button>
           </div>
           <div className="card-body">
+            
+            {/* FORMULARIO DESPLEGABLE PARA MATRICULAR */}
+            {mostrarModalMatricula && (
+              <div className="card border-success mb-4 p-3 bg-light">
+                <h6 className="fw-bold text-success mb-3">Registrar Nuevo Estudiante en este Curso</h6>
+                <form onSubmit={handleMatricularEstudiante} className="row g-3">
+                  <div className="col-md-12">
+                    <label className="form-label small fw-bold">Número de Documento</label>
+                    <input 
+                      type="text" 
+                      className="form-control form-control-sm" 
+                      placeholder="Ej: 1500286477"
+                      value={documentoEstudiante}
+                      onChange={(e) => setDocumentoEstudiante(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label small fw-bold">Primer Nombre *</label>
+                    <input 
+                      type="text" 
+                      className="form-control form-control-sm" 
+                      placeholder="Ej: Jorge"
+                      value={primerNombre}
+                      onChange={(e) => setPrimerNombre(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label small fw-bold">Segundo Nombre (Opcional)</label>
+                    <input 
+                      type="text" 
+                      className="form-control form-control-sm" 
+                      placeholder="Ej: Luis"
+                      value={segundoNombre}
+                      onChange={(e) => setSegundoNombre(e.target.value)}
+                    />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label small fw-bold">Primer Apellido *</label>
+                    <input 
+                      type="text" 
+                      className="form-control form-control-sm" 
+                      placeholder="Ej: Salgado"
+                      value={primerApellido}
+                      onChange={(e) => setPrimerApellido(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label small fw-bold">Segundo Apellido (Opcional)</label>
+                    <input 
+                      type="text" 
+                      className="form-control form-control-sm" 
+                      placeholder="Ej: Gomez"
+                      value={segundoApellido}
+                      onChange={(e) => setSegundoApellido(e.target.value)}
+                    />
+                  </div>
+                  <div className="col-12 text-end">
+                    <button 
+                      type="submit" 
+                      className="btn btn-success btn-sm px-4 fw-bold"
+                      disabled={registrandoMatricula}
+                    >
+                      {registrandoMatricula ? "Guardando..." : "Guardar Matrícula"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
             {estudiantes.length > 0 ? (
               <div className="table-responsive">
                 <table className="table table-striped align-middle mb-0">
                   <thead>
                     <tr>
+                      <th style={{ width: "8%" }} className="text-center">Código #</th>
                       <th>Documento</th>
-                      <th>Nombre Completo</th>
+                      <th>Apellidos y Nombres</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {estudiantes.map((e) => (
+                    {estudiantes.map((e, index) => (
                       <tr key={e.id_estudiante}>
+                        <td className="text-center fw-bold text-primary">{index + 1}</td>
                         <td>{e.numero_documento}</td>
-                        <td>
-                          {e.primer_nombre} {e.primer_apellido}
+                        <td className="fw-semibold">
+                          {e.primer_apellido} {e.segundo_apellido || ""} {e.primer_nombre} {e.segundo_nombre || ""}
                         </td>
                       </tr>
                     ))}
@@ -412,6 +563,7 @@ function CursosTable() {
                 <table className="table table-striped table-bordered align-middle">
                   <thead className="table-light">
                     <tr>
+                      <th style={{ width: "8%" }} className="text-center">Código #</th>
                       <th>Documento</th>
                       <th>Estudiante</th>
                       <th className="text-center">Estado (Asistencia)</th>
@@ -421,15 +573,18 @@ function CursosTable() {
                   <tbody>
                     {detalleAsistencias.length === 0 ? (
                       <tr>
-                        <td colSpan="4" className="text-center text-muted py-3">
+                        <td colSpan="5" className="text-center text-muted py-3">
                           No hay registros de asistencia para esta fecha en esta materia.
                         </td>
                       </tr>
                     ) : (
-                      detalleAsistencias.map((est) => (
+                      detalleAsistencias.map((est, idx) => (
                         <tr key={est.id_estudiante}>
+                          <td className="text-center fw-bold text-primary">{idx + 1}</td>
                           <td>{est.numero_documento}</td>
-                          <td className="fw-semibold">{est.nombre_completo}</td>
+                          <td className="fw-semibold">
+                            {est.primer_apellido} {est.segundo_apellido || ""} {est.primer_nombre} {est.segundo_nombre || ""}
+                          </td>
                           <td className="text-center">
                             {est.estado === 'A' && <span className="badge bg-danger">Ausente (Falta)</span>}
                             {est.estado === 'P' && <span className="badge bg-success">Presente</span>}

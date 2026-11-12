@@ -53,7 +53,7 @@ CREATE TABLE acudientes (
 CREATE TABLE estudiantes (
     id_estudiante INT AUTO_INCREMENT PRIMARY KEY,
     id_persona INT UNIQUE NOT NULL,
-    codigo_lista INT UNIQUE NOT NULL,
+    codigo_lista INT NOT NULL,
     estado VARCHAR(20) DEFAULT 'Activo',
     FOREIGN KEY (id_persona) REFERENCES personas(id_persona) ON DELETE CASCADE
 );

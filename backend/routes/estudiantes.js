@@ -12,7 +12,7 @@ router.get("/", async (req, res) => {
         const offset = (page - 1) * limit;
 
         let query = `
-            SELECT e.*, p.primer_nombre, p.primer_apellido, p.numero_documento
+            SELECT e.*, p.primer_nombre, p.segundo_nombre, p.primer_apellido, p.segundo_apellido, p.numero_documento
             FROM estudiantes e
             JOIN personas p ON e.id_persona = p.id_persona
         `;
@@ -56,7 +56,7 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
     try {
         const [rows] = await pool.query(`
-            SELECT e.*, p.primer_nombre, p.primer_apellido, p.numero_documento
+            SELECT e.*, p.primer_nombre, p.segundo_nombre, p.primer_apellido, p.segundo_apellido, p.numero_documento
             FROM estudiantes e
             JOIN personas p ON e.id_persona = p.id_persona
             WHERE e.id_estudiante = ?`, [req.params.id]
@@ -68,27 +68,67 @@ router.get("/:id", async (req, res) => {
     }
 });
 
-// POST / - Registrar un nuevo estudiante
+// POST / - Registrar un nuevo estudiante con transacción completa (Persona -> Estudiante -> Curso)
 router.post("/", async (req, res) => {
+    const connection = await pool.getConnection();
     try {
-        const { id_persona, codigo_lista, estado } = req.body;
-        if (!id_persona || !codigo_lista) return res.status(400).json({ error: "id_persona y codigo_lista son obligatorios" });
+        const { 
+            tipo_documento, 
+            numero_documento, 
+            primer_nombre, 
+            segundo_nombre, 
+            primer_apellido, 
+            segundo_apellido, 
+            codigo_lista, 
+            id_curso,
+            estado 
+        } = req.body;
 
-        const [existingCode] = await pool.query("SELECT id_estudiante FROM estudiantes WHERE codigo_lista = ?", [codigo_lista]);
-        if (existingCode.length > 0) return res.status(400).json({ error: "Ya existe un estudiante con ese código de lista" });
+        if (!numero_documento || !primer_nombre || !primer_apellido || !id_curso) {
+            return res.status(400).json({ error: "Faltan campos obligatorios para completar la matrícula." });
+        }
 
-        const [result] = await pool.query(
-            "INSERT INTO estudiantes (id_persona, codigo_lista, estado) VALUES (?, ?, ?)",
-            [id_persona, codigo_lista, estado || "Activo"]
+        await connection.beginTransaction();
+
+        // 1. Insertar en la tabla personas
+        const [personaResult] = await connection.query(
+            `INSERT INTO personas (tipo_documento, numero_documento, primer_nombre, segundo_nombre, primer_apellido, segundo_apellido) 
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [tipo_documento || 'tarjeta identidad', numero_documento, primer_nombre, segundo_nombre || null, primer_apellido, segundo_apellido || null]
         );
-        res.status(201).json({ mensaje: "Estudiante registrado correctamente", id_estudiante: result.insertId });
+        const id_persona = personaResult.insertId;
+
+        // 2. Insertar en la tabla estudiantes (asignando un valor por defecto al codigo_lista si no viene)
+        const [estudianteResult] = await connection.query(
+            `INSERT INTO estudiantes (id_persona, codigo_lista, estado) VALUES (?, ?, ?)`,
+            [id_persona, codigo_lista || 1, estado || "Activo"]
+        );
+        const id_estudiante = estudianteResult.insertId;
+
+        // 3. Vincular al curso en estudiantes_cursos (Año 2026)
+        await connection.query(
+            `INSERT INTO estudiantes_cursos (id_estudiante, id_curso, anio) VALUES (?, ?, ?)`,
+            [id_estudiante, id_curso, 2026]
+        );
+
+        await connection.commit();
+        connection.release();
+
+        res.status(201).json({ 
+            mensaje: "Estudiante matriculado exitosamente", 
+            id_estudiante 
+        });
+
     } catch (error) {
+        await connection.rollback();
+        connection.release();
+        console.error("Error en transacción de matrícula:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 // PUT /:id - Actualizar un estudiante por ID
-router.put("/:id", async (req, res) => {
+router.put("/:id", async (q, res) => {
     try {
         const { codigo_lista, estado } = req.body;
         const [result] = await pool.query(

@@ -5,10 +5,7 @@ import Footer from "../../components/Footer";
 import { 
   obtenerCursos, 
   crearAsignaturaDocente, 
-  asignarMateriaACurso, 
-  obtenerAsignaturasPorCurso, 
-  obtenerAsignaturasPorCursoDocente,
-  obtenerUsuarios 
+  obtenerAsignaturasPorCurso 
 } from "../../services/api";
 import axios from "axios";
 
@@ -22,62 +19,67 @@ function AsignaturasCoordinador() {
   const [estadoMaterias, setEstadoMaterias] = useState({}); 
   const [cargando, setCargando] = useState(true);
 
+  // 1. Cargar datos generales al montar la vista
   useEffect(() => {
-    cargarDatosIniciales();
+    const cargarInicial = async () => {
+      try {
+        const resCursos = await obtenerCursos();
+        setCursos(Array.isArray(resCursos) ? resCursos : (resCursos.cursos || []));
+
+        const resMaterias = await obtenerAsignaturasPorCurso();
+        setMateriasGlobales(Array.isArray(resMaterias) ? resMaterias : (resMaterias.asignaturas || []));
+
+        const resDocentes = await axios.get("http://localhost:5000/api/asignaturas_cursos/docentes");
+        setDocentes(Array.isArray(resDocentes.data) ? resDocentes.data : []);
+      } catch (error) {
+        console.error("Error al cargar datos iniciales:", error);
+      } finally {
+        setCargando(false);
+      }
+    };
+    cargarInicial();
   }, []);
 
-  // Cargar datos iniciales (cursos, catálogo global y lista de docentes)
-  const cargarDatosIniciales = async () => {
-    try {
-      const resCursos = await obtenerCursos();
-      setCursos(Array.isArray(resCursos) ? resCursos : (resCursos.cursos || []));
-
-      const resMaterias = await obtenerAsignaturasPorCurso();
-      setMateriasGlobales(Array.isArray(resMaterias) ? resMaterias : (resMaterias.asignaturas || []));
-
-      const resUsuarios = await obtenerUsuarios();
-      const listaUsuarios = Array.isArray(resUsuarios) ? resUsuarios : (resUsuarios.usuarios || []);
-      const soloDocentes = listaUsuarios.filter(u => Number(u.id_cargo) === 3);
-      setDocentes(soloDocentes);
-
-    } catch (error) {
-      console.error("Error al cargar datos de coordinación:", error);
-    } finally {
-      setCargando(false);
-    }
-  };
-
-  // Cada vez que cambia el curso seleccionado, cargamos sus materias ya guardadas
+  // 2. Cargar las asignaciones del curso de forma independiente y segura
   useEffect(() => {
     if (!cursoSeleccionado) {
       setEstadoMaterias({});
       return;
     }
 
-    const cargarAsignacionesCurso = async () => {
+    const cargarAsignacionesDelCurso = async () => {
       try {
-        const resAsignadas = await obtenerAsignaturasPorCursoDocente(cursoSeleccionado);
-        const asignadas = Array.isArray(resAsignadas) ? resAsignadas : [];
+        // Llamamos directamente al endpoint que ya creamos en el backend
+        const response = await axios.get(`http://localhost:5000/api/asignaturas_cursos/curso/${cursoSeleccionado}`);
+        const asignadas = Array.isArray(response.data) ? response.data : [];
         
         const nuevoEstado = {};
+        
+        // Rellenamos el estado con lo que realmente arrojó la base de datos para este curso
         asignadas.forEach(item => {
-          nuevoEstado[item.id_asignatura] = {
-            activo: true,
-            id_docente: item.id_usuario ? String(item.id_usuario) : (item.id_docente ? String(item.id_docente) : "")
-          };
+          const idAsig = item.id_asignatura;
+          const idDoc = item.id_docente;
+
+          if (idAsig) {
+            nuevoEstado[idAsig] = {
+              activo: true,
+              id_docente: idDoc ? String(idDoc) : ""
+            };
+          }
         });
+
         setEstadoMaterias(nuevoEstado);
       } catch (error) {
-        console.error("Error al cargar asignaciones del curso:", error);
+        console.error("Error al cargar las materias del curso:", error);
+        setEstadoMaterias({});
       }
     };
 
-    cargarAsignacionesCurso();
+    cargarAsignacionesDelCurso();
   }, [cursoSeleccionado]);
 
   const handleCambioCurso = (e) => {
-    const idCurso = e.target.value;
-    setCursoSeleccionado(idCurso);
+    setCursoSeleccionado(e.target.value);
   };
 
   const guardarMateriaGlobal = async (e) => {
@@ -88,21 +90,23 @@ function AsignaturasCoordinador() {
       await crearAsignaturaDocente({ nombre_asignatura: nombreMateria });
       alert("Materia creada globalmente con éxito.");
       setNombreMateria("");
-      cargarDatosIniciales();
+      // Recargar catálogo global
+      const resMaterias = await obtenerAsignaturasPorCurso();
+      setMateriasGlobales(Array.isArray(resMaterias) ? resMaterias : (resMaterias.asignaturas || []));
     } catch (error) {
       console.error("Error al crear materia:", error);
       alert(error.response?.data?.error || "Hubo un error al registrar la materia.");
     }
   };
 
-  // Función para eliminar una materia del catálogo global
   const eliminarMateriaGlobal = async (idAsignatura) => {
-    if (!window.confirm("¿Estás seguro de eliminar esta materia del catálogo global? Se borrará de todas las asignaciones.")) return;
+    if (!window.confirm("¿Estás seguro de eliminar esta materia del catálogo global?")) return;
 
     try {
       await axios.delete(`http://localhost:5000/api/asignaturas/${idAsignatura}`);
-      alert("Materia eliminada del catálogo con éxito.");
-      cargarDatosIniciales();
+      alert("Materia eliminada con éxito.");
+      const resMaterias = await obtenerAsignaturasPorCurso();
+      setMateriasGlobales(Array.isArray(resMaterias) ? resMaterias : (resMaterias.asignaturas || []));
     } catch (error) {
       console.error("Error al eliminar materia global:", error);
       alert(error.response?.data?.error || "No se pudo eliminar la materia.");
@@ -113,8 +117,8 @@ function AsignaturasCoordinador() {
     setEstadoMaterias(prev => ({
       ...prev,
       [idAsignatura]: {
-        ...prev[idAsignatura],
-        activo: !(prev[idAsignatura]?.activo)
+        activo: !(prev[idAsignatura]?.activo),
+        id_docente: prev[idAsignatura]?.id_docente || ""
       }
     }));
   };
@@ -137,15 +141,24 @@ function AsignaturasCoordinador() {
     }
 
     try {
-      for (const [id_asignatura, config] of Object.entries(estadoMaterias)) {
+      const asignaturasParaGuardar = [];
+
+      materiasGlobales.forEach((m) => {
+        const config = estadoMaterias[m.id_asignatura];
         if (config?.activo) {
-          await asignarMateriaACurso({
-            id_asignatura: Number(id_asignatura),
-            id_curso: Number(cursoSeleccionado),
-            id_docente: config.id_docente ? Number(config.id_docente) : null
+          const docenteVal = config.id_docente && config.id_docente !== "" ? Number(config.id_docente) : null;
+          
+          asignaturasParaGuardar.push({
+            id_asignatura: Number(m.id_asignatura),
+            id_docente: docenteVal
           });
         }
-      }
+      });
+
+      await axios.post("http://localhost:5000/api/asignaturas_cursos", {
+        id_curso: Number(cursoSeleccionado),
+        asignaturas: asignaturasParaGuardar
+      });
 
       alert("¡Configuración de materias y docentes guardada con éxito!");
     } catch (error) {
@@ -169,7 +182,7 @@ function AsignaturasCoordinador() {
               </div>
             ) : (
               <div className="row">
-                {/* Columna 1: Registrar y Administrar Catálogo Global de Materias */}
+                {/* Columna 1: Catálogo Global */}
                 <div className="col-md-5 mb-4">
                   <div className="card shadow border-0 h-100">
                     <div className="card-header bg-primary text-white py-3">
@@ -266,6 +279,8 @@ function AsignaturasCoordinador() {
                               <tbody>
                                 {materiasGlobales.map((m) => {
                                   const estaActiva = estadoMaterias[m.id_asignatura]?.activo || false;
+                                  const docenteSeleccionado = estadoMaterias[m.id_asignatura]?.id_docente || "";
+                                  
                                   return (
                                     <tr key={m.id_asignatura}>
                                       <td className="text-center">
@@ -281,14 +296,14 @@ function AsignaturasCoordinador() {
                                       <td>
                                         <select
                                           className="form-select form-select-sm"
-                                          value={estadoMaterias[m.id_asignatura]?.id_docente || ""}
+                                          value={docenteSeleccionado}
                                           onChange={(e) => handleDocenteChange(m.id_asignatura, e.target.value)}
                                           disabled={!estaActiva}
                                         >
                                           <option value="">-- Seleccionar Docente --</option>
                                           {docentes.map((d) => (
-                                            <option key={d.id_usuario} value={d.id_usuario}>
-                                              {d.primer_nombre} {d.primer_apellido}
+                                            <option key={d.id_docente} value={d.id_docente}>
+                                              {d.nombre_completo}
                                             </option>
                                           ))}
                                         </select>
