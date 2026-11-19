@@ -68,7 +68,7 @@ function EstadisticasAcud() {
       try {
         setCargandoMetricas(true);
         const res = await axios.get(
-          `http://localhost:5000/api/asistencia/estadisticas/${estudianteSeleccionado.id_estudiante}?mes=${mesSeleccionado}`
+          `http://localhost:5000/api/asistencias/estadisticas/${estudianteSeleccionado.id_estudiante}?mes=${mesSeleccionado}`
         );
         setMetricas(res.data);
       } catch (err) {

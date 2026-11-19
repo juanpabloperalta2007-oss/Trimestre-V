@@ -38,12 +38,13 @@ router.get("/curso/:id_curso", async (req, res) => {
                 ar.nombre_area,
                 ac.id_docente,
                 p.id_usuario,
+                CONCAT_WS(' ', p.primer_nombre, p.primer_apellido) AS nombre_docente,
                 ac.id_curso
             FROM asignaturas_cursos ac
             JOIN asignaturas a ON ac.id_asignatura = a.id_asignatura
             LEFT JOIN areas ar ON a.id_area = ar.id_area
-            JOIN docentes d ON ac.id_docente = d.id_docente
-            JOIN personas p ON d.id_persona = p.id_persona
+            LEFT JOIN docentes d ON ac.id_docente = d.id_docente
+            LEFT JOIN personas p ON d.id_persona = p.id_persona
             WHERE ac.id_curso = ?
             ORDER BY a.nombre_asignatura ASC
         `;

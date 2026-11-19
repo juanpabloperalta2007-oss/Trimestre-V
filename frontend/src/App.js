@@ -63,39 +63,29 @@ import GenerarExcusaAcud from "./pages/Acudiente/GenerarExcusaAcud";
 // RUTA PROTEGIDA
 // ======================================================
 
-function RutaProtegida({ children, cargoPermitido }) {
+function RutaProtegida({ children, cargoPermitido, cargosPermitidos }) {
   const usuarioRaw = localStorage.getItem("usuario");
 
-  if (
-    !usuarioRaw ||
-    usuarioRaw === "undefined" ||
-    usuarioRaw === "null"
-  ) {
+  if (!usuarioRaw || usuarioRaw === "undefined" || usuarioRaw === "null") {
     return <Navigate to="/" replace />;
   }
 
   let usuario;
-
   try {
     usuario = JSON.parse(usuarioRaw);
   } catch (error) {
-    console.error("Error al leer usuario de localStorage:", error);
     localStorage.removeItem("usuario");
     return <Navigate to="/" replace />;
   }
 
-  if (cargoPermitido) {
-    const cargoUsuario = parseInt(usuario?.id_cargo, 10);
+  const cargoUsuario = parseInt(usuario?.id_cargo, 10);
 
-    if (cargoUsuario !== cargoPermitido) {
-      console.error(
-        "Acceso denegado. Cargo del usuario:",
-        cargoUsuario,
-        "Cargo requerido:",
-        cargoPermitido
-      );
-      return <Navigate to="/" replace />;
-    }
+  if (cargoPermitido && cargoUsuario !== cargoPermitido) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (Array.isArray(cargosPermitidos) && !cargosPermitidos.includes(cargoUsuario)) {
+    return <Navigate to="/" replace />;
   }
 
   return children;
@@ -266,7 +256,7 @@ function App() {
           <Route
             path="/alertas"
             element={
-              <RutaProtegida cargoPermitido={3}>
+              <RutaProtegida cargosPermitidos={[2, 3]}>
                 <Alertas />
               </RutaProtegida>
             }
@@ -282,10 +272,10 @@ function App() {
           <Route
             path="/reportes"
             element={
-              <RutaProtegida cargoPermitido={3}>
+              <RutaProtegida cargosPermitidos={[2, 3]}>
                 <Reportes />
               </RutaProtegida>
-            }
+           }
           />
           <Route
             path="/llamar-lista"

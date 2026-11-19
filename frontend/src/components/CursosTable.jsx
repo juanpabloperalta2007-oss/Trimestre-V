@@ -146,8 +146,8 @@ function CursosTable() {
 
     // 2. Obtener materias asignadas a este curso
     try {
-      const resMaterias = await obtenerAsignaturasPorCursoDocente(idCurso);
-      setMateriasCurso(Array.isArray(resMaterias) ? resMaterias : []);
+      const resMaterias = await axios.get(`http://localhost:5000/api/asignaturas_cursos/curso/${idCurso}`);
+      setMateriasCurso(Array.isArray(resMaterias.data) ? resMaterias.data : []);
     } catch (err) {
       console.error("Error al obtener materias del curso:", err);
       setMateriasCurso([]);

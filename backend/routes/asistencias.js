@@ -1,7 +1,186 @@
 import { Router } from "express";
+import nodemailer from "nodemailer";
 import pool from "../db.js";
 
 const router = Router();
+
+// ======================================================
+// TRANSPORTADOR GMAIL (NODEMAILER)
+// ======================================================
+const transporter =
+    process.env.EMAIL_USER && process.env.EMAIL_PASS
+        ? nodemailer.createTransport({
+              service: "gmail",
+              auth: {
+                  user: process.env.EMAIL_USER,
+                  pass: process.env.EMAIL_PASS
+              }
+          })
+        : null;
+
+function describirEstado(estadoBD) {
+    switch (estadoBD) {
+        case "P":
+            return "Presente (Asistió)";
+        case "A":
+            return "Ausente (Faltó)";
+        case "T":
+            return "Tarde / Retardos";
+        case "J":
+            return "Justificado";
+        default:
+            return estadoBD;
+    }
+}
+
+async function notificarAcudienteAsistencia({
+    idEstudiante,
+    idAsignaturaCurso,
+    fecha,
+    estadoBD,
+    observaciones
+}) {
+    try {
+        // 1. Obtener datos del estudiante, asignatura, curso y docente
+        const [infoRows] = await pool.query(
+            `
+            SELECT
+                e.id_estudiante,
+                TRIM(
+                    CONCAT_WS(
+                        ' ',
+                        p_est.primer_nombre,
+                        p_est.segundo_nombre,
+                        p_est.primer_apellido,
+                        p_est.segundo_apellido
+                    )
+                ) AS nombre_estudiante,
+                c.nombre_curso,
+                asi.nombre_asignatura,
+                ac.id_docente
+            FROM estudiantes e
+            INNER JOIN personas p_est ON e.id_persona = p_est.id_persona
+            INNER JOIN asignaturas_cursos ac ON ac.id_asignatura_curso = ?
+            INNER JOIN cursos c ON ac.id_curso = c.id_curso
+            INNER JOIN asignaturas asi ON ac.id_asignatura = asi.id_asignatura
+            WHERE e.id_estudiante = ?
+            LIMIT 1
+            `,
+            [idAsignaturaCurso, idEstudiante]
+        );
+
+        if (infoRows.length === 0) {
+            return { notificado: false, motivo: "No se encontró información del estudiante o asignatura." };
+        }
+
+        const info = infoRows[0];
+
+        // 2. Buscar acudiente vinculado y su correo electrónico
+        const [acuRows] = await pool.query(
+            `
+            SELECT
+                acu.id_acudiente,
+                TRIM(
+                    CONCAT_WS(
+                        ' ',
+                        p_acu.primer_nombre,
+                        p_acu.segundo_nombre,
+                        p_acu.primer_apellido,
+                        p_acu.segundo_apellido
+                    )
+                ) AS nombre_acudiente,
+                COALESCE(NULLIF(p_acu.correo, ''), NULLIF(u.correo, ''), NULLIF(u.email, '')) AS correo_acudiente
+            FROM acudientes_estudiantes ae
+            INNER JOIN acudientes acu ON ae.id_acudiente = acu.id_acudiente
+            INNER JOIN personas p_acu ON acu.id_persona = p_acu.id_persona
+            LEFT JOIN usuarios u ON p_acu.id_usuario = u.id_usuario
+            WHERE ae.id_estudiante = ?
+            LIMIT 1
+            `,
+            [idEstudiante]
+        );
+
+        const acudiente = acuRows.length > 0 ? acuRows[0] : null;
+        const estadoTexto = describirEstado(estadoBD);
+        const asunto = `Reporte de asistencia - ${info.nombre_estudiante} (${info.nombre_asignatura} - ${fecha})`;
+        const mensaje =
+            `Estimado(a) ${acudiente?.nombre_acudiente || "acudiente"}, ` +
+            `se reporta que el estudiante ${info.nombre_estudiante} (Curso ${info.nombre_curso}) ` +
+            `registró estado "${estadoTexto}" en la asignatura ${info.nombre_asignatura} ` +
+            `el día ${fecha}.` +
+            (observaciones ? ` Observación: ${observaciones}` : "");
+
+        let estadoEnvio = "Enviado";
+        let correoEnviado = false;
+
+        // 3. Intentar enviar correo real por Gmail si hay correo del acudiente y transporter configurado
+        if (transporter && acudiente?.correo_acudiente) {
+            try {
+                await transporter.sendMail({
+                    from: `"Sistema GAE - Liceo" <${process.env.EMAIL_USER}>`,
+                    to: acudiente.correo_acudiente,
+                    subject: asunto,
+                    text: mensaje,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #222;">
+                            <h3 style="margin-bottom: 8px;">Reporte de asistencia escolar</h3>
+                            <p>Estimado(a) <strong>${acudiente.nombre_acudiente || "acudiente"}</strong>,</p>
+                            <p>
+                                El estudiante <strong>${info.nombre_estudiante}</strong>
+                                (Curso <strong>${info.nombre_curso}</strong>) registró el estado
+                                <strong>${estadoTexto}</strong> en la asignatura
+                                <strong>${info.nombre_asignatura}</strong> el día <strong>${fecha}</strong>.
+                            </p>
+                            ${
+                                observaciones
+                                    ? `<p><strong>Observación:</strong> ${observaciones}</p>`
+                                    : ""
+                            }
+                            <hr style="border:none;border-top:1px solid #eee;margin:16px 0;" />
+                            <small style="color:#666;">Mensaje automático del sistema GAE.</small>
+                        </div>
+                    `
+                });
+                correoEnviado = true;
+            } catch (mailError) {
+                console.error("Error enviando correo Gmail:", mailError.message);
+                estadoEnvio = "Pendiente correo";
+            }
+        } else {
+            estadoEnvio = "Sin correo";
+        }
+
+        // 4. Registrar notificación en la tabla correos_notificaciones (si hay acudiente y docente)
+        if (acudiente?.id_acudiente && info.id_docente) {
+            await pool.query(
+                `
+                INSERT INTO correos_notificaciones
+                    (asunto, mensaje, tipo_notificacion, estado_envio, id_docente, id_acudiente, id_estudiante)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                `,
+                [
+                    asunto,
+                    mensaje,
+                    estadoBD === "A" ? "Inasistencia" : "Asistencia",
+                    estadoEnvio,
+                    info.id_docente,
+                    acudiente.id_acudiente,
+                    idEstudiante
+                ]
+            );
+        }
+
+        return {
+            notificado: true,
+            correoEnviado,
+            correoDestino: acudiente?.correo_acudiente || null,
+            estadoEnvio
+        };
+    } catch (err) {
+        console.error("Error en notificarAcudienteAsistencia:", err.message);
+        return { notificado: false, error: err.message };
+    }
+}
 
 // ======================================================
 // 1. OBTENER TODAS LAS ASISTENCIAS
@@ -238,10 +417,10 @@ router.get("/estadisticas/:id_estudiante", async (req, res) => {
         const [filas] = await pool.query(
             `
             SELECT 
-                SUM(CASE WHEN UPPER(TRIM(COALESCE(estado, ''))) = 'P' THEN 1 ELSE 0 END) AS asistencias,
-                SUM(CASE WHEN UPPER(TRIM(COALESCE(estado, ''))) = 'A' THEN 1 ELSE 0 END) AS fallas_sin_justificar,
-                SUM(CASE WHEN UPPER(TRIM(COALESCE(estado, ''))) = 'J' THEN 1 ELSE 0 END) AS fallas_justificadas,
-                SUM(CASE WHEN UPPER(TRIM(COALESCE(estado, ''))) = 'T' THEN 1 ELSE 0 END) AS retardos
+                SUM(CASE WHEN UPPER(TRIM(COALESCE(estado, ''))) IN ('P', 'PRESENTE') THEN 1 ELSE 0 END) AS asistencias,
+                SUM(CASE WHEN UPPER(TRIM(COALESCE(estado, ''))) IN ('A', 'AUSENTE', 'EXCUSA RECHAZADA') THEN 1 ELSE 0 END) AS fallas_sin_justificar,
+                SUM(CASE WHEN UPPER(TRIM(COALESCE(estado, ''))) IN ('J', 'JUSTIFICADO', 'FALLA JUSTIFICADA', 'EXCUSA PENDIENTE') THEN 1 ELSE 0 END) AS fallas_justificadas,
+                SUM(CASE WHEN UPPER(TRIM(COALESCE(estado, ''))) IN ('T', 'TARDE', 'TARDÍA', 'RETARDO') THEN 1 ELSE 0 END) AS retardos
             FROM asistencias 
             WHERE id_estudiante = ? 
             AND (? IS NULL OR MONTH(fecha) = ?)
@@ -262,7 +441,7 @@ router.get("/estadisticas/:id_estudiante", async (req, res) => {
 });
 
 // ======================================================
-// 7. RADICAR EXCUSA
+// 7. RADICAR EXCUSA (Conectado con Gestión de Excusas del Coordinador)
 // ======================================================
 router.post("/excusa", async (req, res) => {
     try {
@@ -287,22 +466,43 @@ router.post("/excusa", async (req, res) => {
             await pool.query(
                 `
                 UPDATE asistencias 
-                SET estado = 'J', observaciones = ? 
+                SET estado = 'Excusa Pendiente', observaciones = ? 
                 WHERE id_asistencia = ?
                 `,
                 [detalleObservacion, existente[0].id_asistencia]
             );
         } else {
+            const [asigCurso] = await pool.query(
+                `
+                SELECT ac.id_asignatura_curso 
+                FROM asignaturas_cursos ac
+                INNER JOIN estudiantes_cursos ec ON ac.id_curso = ec.id_curso
+                WHERE ec.id_estudiante = ?
+                LIMIT 1
+                `,
+                [id_estudiante]
+            );
+
+            const idAsigCursoValido = asigCurso.length > 0
+                ? asigCurso[0].id_asignatura_curso
+                : null;
+
+            if (!idAsigCursoValido) {
+                return res.status(400).json({
+                    error: "El estudiante no tiene asignaturas vinculadas a su curso aún."
+                });
+            }
+
             await pool.query(
                 `
                 INSERT INTO asistencias (fecha, estado, observaciones, id_estudiante, id_asignatura_curso)
-                VALUES (?, 'J', ?, ?, 1)
+                VALUES (?, 'Excusa Pendiente', ?, ?, ?)
                 `,
-                [fecha_inasistencia, detalleObservacion, id_estudiante]
+                [fecha_inasistencia, detalleObservacion, id_estudiante, idAsigCursoValido]
             );
         }
 
-        res.status(201).json({ mensaje: "Excusa radicada exitosamente." });
+        res.status(201).json({ mensaje: "Excusa radicada exitosamente y enviada a coordinación." });
     } catch (error) {
         console.error("Error al radicar excusa:", error);
         res.status(500).json({ error: error.message });
@@ -373,7 +573,7 @@ router.get("/lista/:id_asignatura_curso", async (req, res) => {
 });
 
 // ======================================================
-// 9. GUARDAR / ACTUALIZAR ASISTENCIA DESDE LISTA
+// 9. GUARDAR / ACTUALIZAR ASISTENCIA DESDE LISTA + GMAIL
 // ======================================================
 router.post("/lista", async (req, res) => {
     try {
@@ -409,7 +609,6 @@ router.post("/lista", async (req, res) => {
             return res.status(400).json({ mensaje: "El ID de la asignatura curso no es válido.", id_asignatura_curso });
         }
 
-        // Verificar si ya existe un registro de asistencia para este estudiante en esta fecha y asignatura/curso
         const [existente] = await pool.query(
             `
             SELECT id_asistencia FROM asistencias 
@@ -418,6 +617,8 @@ router.post("/lista", async (req, res) => {
             `,
             [estudianteId, asignaturaCursoId, fecha]
         );
+
+        let resultadoNotificacion = null;
 
         if (existente.length > 0) {
             await pool.query(
@@ -429,7 +630,18 @@ router.post("/lista", async (req, res) => {
                 [estadoBD, observaciones || null, existente[0].id_asistencia]
             );
 
-            return res.json({ mensaje: "Asistencia actualizada correctamente." });
+            resultadoNotificacion = await notificarAcudienteAsistencia({
+                idEstudiante: estudianteId,
+                idAsignaturaCurso: asignaturaCursoId,
+                fecha,
+                estadoBD,
+                observaciones
+            });
+
+            return res.json({
+                mensaje: "Asistencia actualizada correctamente.",
+                notificacion: resultadoNotificacion
+            });
         } else {
             const [result] = await pool.query(
                 `
@@ -439,9 +651,18 @@ router.post("/lista", async (req, res) => {
                 [fecha, estadoBD, observaciones || null, estudianteId, asignaturaCursoId]
             );
 
+            resultadoNotificacion = await notificarAcudienteAsistencia({
+                idEstudiante: estudianteId,
+                idAsignaturaCurso: asignaturaCursoId,
+                fecha,
+                estadoBD,
+                observaciones
+            });
+
             return res.status(201).json({
                 mensaje: "Asistencia registrada correctamente.",
-                id_asistencia: result.insertId
+                id_asistencia: result.insertId,
+                notificacion: resultadoNotificacion
             });
         }
     } catch (error) {

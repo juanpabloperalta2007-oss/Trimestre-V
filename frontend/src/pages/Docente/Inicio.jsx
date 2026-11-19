@@ -1,52 +1,67 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import SidebarDocen from '../../components/SidebarDocen';
 import BuzonCard from '../../components/BuzonCard';
 import Footer from '../../components/Footer';
 
 function Inicio() {
+  const navigate = useNavigate();
+
   function obtenerFechaCompleta() {
     const hoy = new Date();
-    return hoy.toLocaleDateString('es-ES', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return hoy.toLocaleDateString('es-CO', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
   }
 
   return (
-    // w-100 asegura que el contenedor principal ocupe todo el ancho
     <div className="d-flex flex-column min-vh-100 bg-light w-100">
       {/* 1. Barra superior */}
       <Header />
 
-      {/* Usamos container-fluid con px-0 para remover márgenes laterales automáticos */}
+      {/* 2. Contenido principal con menú lateral */}
       <div className="container-fluid flex-grow-1 px-0">
-        <div className="row g-0 min-vh-100"> 
-          {/* g-0 elimina el espacio extra entre columnas de Bootstrap */}
-          
-          {/* 2. Menú lateral izquierdo */}
+        <div className="row g-0 min-vh-100">
           <SidebarDocen />
 
-          {/* Área del Contenido Central */}
           <div className="col-md-9 col-lg-10 p-4">
-            
-            <div className="d-flex justify-content-between align-items-center mb-4">
+            {/* Encabezado y acciones rápidas */}
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 pb-2 border-bottom">
               <div>
                 <h2 className="fw-bold text-dark m-0">Inicio</h2>
-                <p className="text-muted small mb-0">
-                  <i className="bi bi-clock me-1"></i> <strong>Hoy:</strong> {obtenerFechaCompleta()}
+                <p className="text-muted small mb-0 text-capitalize">
+                  <i className="bi bi-calendar3 me-1"></i>
+                  <strong>Hoy:</strong> {obtenerFechaCompleta()}
                 </p>
               </div>
-              <button className="btn btn-outline-primary d-flex align-items-center gap-2">
-                <i className="bi bi-journal-bookmark"></i> Agenda
-              </button>
+
+              <div className="d-flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="btn btn-primary d-flex align-items-center gap-2"
+                  onClick={() => navigate('/llamar-lista')}
+                >
+                  <i className="bi bi-clipboard-check"></i>
+                  Llamar lista
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-outline-primary d-flex align-items-center gap-2"
+                  onClick={() => navigate('/consultar-horario')}
+                >
+                  <i className="bi bi-journal-bookmark"></i>
+                  Agenda / Horario
+                </button>
+              </div>
             </div>
 
-            {/* 3. Tarjeta del Buzón */}
+            {/* 3. Buzón y resumen del docente */}
             <BuzonCard />
-
           </div>
         </div>
       </div>

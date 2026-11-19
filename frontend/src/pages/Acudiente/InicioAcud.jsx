@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import Header from "../../components/Header";
 import SidebarAcud from "../../components/SidebarAcud";
 import Footer from "../../components/Footer";
+import VincularEstudiante from "./VincularEstudiante";
 import { useAuth } from "../../context/AuthContext";
 
 function InicioAcud() {
@@ -25,34 +26,32 @@ function InicioAcud() {
     });
   }
 
-  useEffect(() => {
-    const cargarNotificaciones = async () => {
-      const idAcudiente = usuario?.id_acudiente || usuario?.id_usuario;
+  const cargarNotificaciones = useCallback(async () => {
+    const idAcudiente = usuario?.id_acudiente || usuario?.id_usuario;
 
-      if (!idAcudiente) return;
+    if (!idAcudiente) return;
 
-      try {
-        setCargando(true);
-        const res = await axios.get(
-          `http://localhost:5000/api/correos_notificaciones/acudiente/${idAcudiente}`
-        );
-        setNotificaciones(res.data);
-      } catch (err) {
-        console.error("Error al obtener notificaciones:", err);
-      } finally {
-        setCargando(false);
-      }
-    };
-
-    cargarNotificaciones();
+    try {
+      setCargando(true);
+      const res = await axios.get(
+        `http://localhost:5000/api/correos_notificaciones/acudiente/${idAcudiente}`
+      );
+      setNotificaciones(res.data);
+    } catch (err) {
+      console.error("Error al obtener notificaciones:", err);
+    } finally {
+      setCargando(false);
+    }
   }, [usuario]);
 
-  // Conteo de no leídos
+  useEffect(() => {
+    cargarNotificaciones();
+  }, [cargarNotificaciones]);
+
   const noLeidasCount = notificaciones.filter(
     (n) => n.estado_envio === "Pendiente" || n.estado_envio === "No leído"
   ).length;
 
-  // Correos filtrados para el buscador cuando está activada la vista completa
   const correosFiltrados = notificaciones.filter(
     (item) =>
       item.asunto?.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -69,111 +68,125 @@ function InicioAcud() {
           <SidebarAcud />
 
           <div className="col-md-9 col-lg-10 p-4">
-            
             {/* Encabezado Principal */}
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <div>
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+              <div className="text-start">
                 <h2 className="fw-bold text-dark m-0">
                   {mostrarBuzonCompleto ? "Buzón Completo" : "Inicio"}
                 </h2>
                 <p className="text-muted small mb-0">
-                  <i className="bi bi-clock me-1"></i> <strong>Hoy:</strong>{" "}
-                  {obtenerFechaCompleta()}
+                  <i className="bi bi-clock me-1"></i>
+                  <strong>Hoy:</strong> {obtenerFechaCompleta()}
                 </p>
               </div>
-              
-              {/* Botón dinámico según el modo de vista */}
+
               {mostrarBuzonCompleto ? (
                 <button
-                  className="btn btn-outline-secondary d-flex align-items-center gap-2"
+                  type="button"
+                  className="btn btn-secondary d-inline-flex align-items-center gap-2"
+                  style={{ width: "auto", flexShrink: 0 }}
                   onClick={() => setMostrarBuzonCompleto(false)}
                 >
                   <i className="bi bi-arrow-left"></i> Volver al Inicio
                 </button>
               ) : (
-                <button className="btn btn-outline-primary d-flex align-items-center gap-2">
+                <button
+                  type="button"
+                  className="btn btn-primary d-inline-flex align-items-center gap-2"
+                  style={{ width: "auto", flexShrink: 0 }}
+                >
                   <i className="bi bi-journal-bookmark"></i> Agenda
                 </button>
               )}
             </div>
 
             {/* ========================================================= */}
-            {/* VISTA 1: RESUMEN DEL BUZÓN (Vista Por Defecto)            */}
+            {/* VISTA 1: RESUMEN DEL BUZÓN + VINCULAR ESTUDIANTE          */}
             {/* ========================================================= */}
             {!mostrarBuzonCompleto ? (
-              <div className="card border-0 shadow-sm p-3">
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <h5 className="fw-bold m-0 text-secondary">Buzón - Resumen</h5>
-                  <span className="badge bg-danger rounded-pill px-3 py-2">
-                    {noLeidasCount} nuevos
-                  </span>
+              <div className="row g-4 align-items-start">
+                {/* COLUMNA IZQUIERDA: BUZÓN - RESUMEN */}
+                <div className="col-lg-7">
+                  <div className="card border-0 shadow-sm p-4">
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <h5 className="fw-bold m-0 text-dark">Buzón - Resumen</h5>
+                      <span className="badge bg-danger rounded-pill px-3 py-2">
+                        {noLeidasCount} nuevos
+                      </span>
+                    </div>
+
+                    {cargando ? (
+                      <div className="text-center py-4 text-muted small">
+                        Cargando correos...
+                      </div>
+                    ) : (
+                      <div className="table-responsive">
+                        <table className="table table-hover align-middle mb-0">
+                          <thead className="table-light">
+                            <tr>
+                              <th>Nombre</th>
+                              <th>Fecha</th>
+                              <th>Rol</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {notificaciones.length === 0 ? (
+                              <tr>
+                                <td colSpan="3" className="text-center py-4 text-muted small">
+                                  No tienes correos ni notificaciones registradas.
+                                </td>
+                              </tr>
+                            ) : (
+                              notificaciones.slice(0, 5).map((item) => (
+                                <tr
+                                  key={item.id_correo}
+                                  style={{ cursor: "pointer" }}
+                                  onClick={() => setCorreoSeleccionado(item)}
+                                >
+                                  <td className="fw-bold text-dark">
+                                    {item.remitente_nombre || "Docente"}
+                                  </td>
+                                  <td className="text-muted small">
+                                    {item.fecha_envio
+                                      ? new Date(item.fecha_envio).toLocaleDateString("es-ES")
+                                      : "Sin fecha"}
+                                  </td>
+                                  <td>
+                                    <span className="badge bg-light text-dark border px-2 py-1 small">
+                                      {item.rol || "Profesor"}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      className="btn btn-success w-100 fw-bold mt-3"
+                      onClick={() => setMostrarBuzonCompleto(true)}
+                    >
+                      Ver todo
+                    </button>
+                  </div>
                 </div>
 
-                {cargando ? (
-                  <div className="text-center py-4 text-muted small">
-                    Cargando correos...
-                  </div>
-                ) : (
-                  <div className="table-responsive">
-                    <table className="table table-hover align-middle mb-0">
-                      <thead className="table-light">
-                        <tr>
-                          <th>Nombre</th>
-                          <th>Fecha</th>
-                          <th>Rol</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {notificaciones.length === 0 ? (
-                          <tr>
-                            <td colSpan="3" className="text-center py-4 text-muted small">
-                              No tienes correos ni notificaciones registradas.
-                            </td>
-                          </tr>
-                        ) : (
-                          // Muestra solo los primeros 5 en el resumen
-                          notificaciones.slice(0, 5).map((item) => (
-                            <tr
-                              key={item.id_correo}
-                              style={{ cursor: "pointer" }}
-                              onClick={() => setCorreoSeleccionado(item)}
-                            >
-                              <td className="fw-bold text-dark">
-                                {item.remitente_nombre || "Docente"}
-                              </td>
-                              <td className="text-muted small">
-                                {item.fecha_envio
-                                  ? new Date(item.fecha_envio).toLocaleDateString("es-ES")
-                                  : "Sin fecha"}
-                              </td>
-                              <td>
-                                <span className="badge bg-light text-dark border px-2 py-1 small">
-                                  {item.rol || "Profesor"}
-                                </span>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {/* Botón que activa la vista completa dentro de la misma pantalla */}
-                <button
-                  className="btn btn-success w-100 fw-bold mt-3"
-                  onClick={() => setMostrarBuzonCompleto(true)}
-                >
-                  Ver todo
-                </button>
+                {/* COLUMNA DERECHA: VINCULAR ESTUDIANTE */}
+                <div className="col-lg-5">
+                  <VincularEstudiante
+                    idUsuarioActual={usuario?.id_usuario}
+                    onVinculacionExitosa={cargarNotificaciones}
+                  />
+                </div>
               </div>
             ) : (
-
               /* ========================================================= */
               /* VISTA 2: LISTADO COMPLETO CON BUSCADOR (Al dar "Ver todo")*/
               /* ========================================================= */
               <div>
-                {/* Buscador */}
                 <div className="card border-0 shadow-sm p-3 mb-3">
                   <div className="input-group">
                     <span className="input-group-text bg-white border-end-0">
@@ -189,7 +202,6 @@ function InicioAcud() {
                   </div>
                 </div>
 
-                {/* Tabla Extendida */}
                 <div className="card border-0 shadow-sm p-3">
                   <div className="table-responsive">
                     <table className="table table-hover align-middle mb-0">
@@ -239,13 +251,12 @@ function InicioAcud() {
                 </div>
               </div>
             )}
-
           </div>
         </div>
       </div>
 
       {/* ========================================================= */}
-      {/* MODAL PARA VER EL CONTENIDO DEL CORREO                     */}
+      {/* MODAL PARA VER EL CONTENIDO DEL CORREO                    */}
       {/* ========================================================= */}
       {correoSeleccionado && (
         <div
