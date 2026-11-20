@@ -7,16 +7,19 @@ const router = Router();
 // ======================================================
 // TRANSPORTADOR GMAIL (NODEMAILER)
 // ======================================================
-const transporter =
-    process.env.EMAIL_USER && process.env.EMAIL_PASS
-        ? nodemailer.createTransport({
-              service: "gmail",
-              auth: {
-                  user: process.env.EMAIL_USER,
-                  pass: process.env.EMAIL_PASS
-              }
-          })
-        : null;
+function crearTransportadorGmail() {
+    const user = (process.env.EMAIL_USER || "").trim();
+    const pass = (process.env.EMAIL_PASS || "").trim();
+
+    if (!user || !pass) {
+        return null;
+    }
+
+    return nodemailer.createTransport({
+        service: "gmail",
+        auth: { user, pass }
+    });
+}
 
 function describirEstado(estadoBD) {
     switch (estadoBD) {
@@ -25,7 +28,7 @@ function describirEstado(estadoBD) {
         case "A":
             return "Ausente (Faltó)";
         case "T":
-            return "Tarde / Retardos";
+            return "Tarde / Retardo";
         case "J":
             return "Justificado";
         default:
@@ -70,12 +73,15 @@ async function notificarAcudienteAsistencia({
         );
 
         if (infoRows.length === 0) {
-            return { notificado: false, motivo: "No se encontró información del estudiante o asignatura." };
+            return {
+                notificado: false,
+                motivo: "No se encontró información del estudiante o asignatura."
+            };
         }
 
         const info = infoRows[0];
 
-        // 2. Buscar acudiente vinculado y su correo electrónico
+        // 2. Buscar acudiente vinculado y su correo (personas.correo o usuarios.login)
         const [acuRows] = await pool.query(
             `
             SELECT
@@ -89,7 +95,7 @@ async function notificarAcudienteAsistencia({
                         p_acu.segundo_apellido
                     )
                 ) AS nombre_acudiente,
-                COALESCE(NULLIF(p_acu.correo, ''), NULLIF(u.correo, ''), NULLIF(u.email, '')) AS correo_acudiente
+                COALESCE(NULLIF(TRIM(p_acu.correo), ''), NULLIF(TRIM(u.login), '')) AS correo_acudiente
             FROM acudientes_estudiantes ae
             INNER JOIN acudientes acu ON ae.id_acudiente = acu.id_acudiente
             INNER JOIN personas p_acu ON acu.id_persona = p_acu.id_persona
@@ -101,6 +107,11 @@ async function notificarAcudienteAsistencia({
         );
 
         const acudiente = acuRows.length > 0 ? acuRows[0] : null;
+        const correoDestino =
+            acudiente?.correo_acudiente && acudiente.correo_acudiente.includes("@")
+                ? acudiente.correo_acudiente.trim()
+                : null;
+
         const estadoTexto = describirEstado(estadoBD);
         const asunto = `Reporte de asistencia - ${info.nombre_estudiante} (${info.nombre_asignatura} - ${fecha})`;
         const mensaje =
@@ -113,17 +124,19 @@ async function notificarAcudienteAsistencia({
         let estadoEnvio = "Enviado";
         let correoEnviado = false;
 
-        // 3. Intentar enviar correo real por Gmail si hay correo del acudiente y transporter configurado
-        if (transporter && acudiente?.correo_acudiente) {
+        // 3. Enviar correo real por Gmail si existe transportador y correo destino
+        const mailTransporter = crearTransportadorGmail();
+
+        if (mailTransporter && correoDestino) {
             try {
-                await transporter.sendMail({
-                    from: `"Sistema GAE - Liceo" <${process.env.EMAIL_USER}>`,
-                    to: acudiente.correo_acudiente,
+                const infoCorreo = await mailTransporter.sendMail({
+                    from: `"Sistema GAE - Liceo" <${process.env.EMAIL_USER.trim()}>`,
+                    to: correoDestino,
                     subject: asunto,
                     text: mensaje,
                     html: `
                         <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #222;">
-                            <h3 style="margin-bottom: 8px;">Reporte de asistencia escolar</h3>
+                            <h3 style="margin-bottom: 8px; color: #0d6efd;">Reporte de asistencia escolar</h3>
                             <p>Estimado(a) <strong>${acudiente.nombre_acudiente || "acudiente"}</strong>,</p>
                             <p>
                                 El estudiante <strong>${info.nombre_estudiante}</strong>
@@ -137,20 +150,29 @@ async function notificarAcudienteAsistencia({
                                     : ""
                             }
                             <hr style="border:none;border-top:1px solid #eee;margin:16px 0;" />
-                            <small style="color:#666;">Mensaje automático del sistema GAE.</small>
+                            <small style="color:#666;">Mensaje automático del Sistema de Gestión de Asistencia Escolar (GAE).</small>
                         </div>
                     `
                 });
                 correoEnviado = true;
+                console.log("Correo enviado a:", correoDestino, "ID:", infoCorreo.messageId);
             } catch (mailError) {
-                console.error("Error enviando correo Gmail:", mailError.message);
+                console.error("Error enviando correo Gmail a", correoDestino, ":", mailError.message);
                 estadoEnvio = "Pendiente correo";
             }
         } else {
             estadoEnvio = "Sin correo";
+            console.warn(
+                "No se envió Gmail. Transporter listo:",
+                Boolean(mailTransporter),
+                "Estudiante ID:",
+                idEstudiante,
+                "Correo acudiente:",
+                correoDestino
+            );
         }
 
-        // 4. Registrar notificación en la tabla correos_notificaciones (si hay acudiente y docente)
+        // 4. Registrar notificación en correos_notificaciones para la interfaz
         if (acudiente?.id_acudiente && info.id_docente) {
             await pool.query(
                 `
@@ -173,7 +195,7 @@ async function notificarAcudienteAsistencia({
         return {
             notificado: true,
             correoEnviado,
-            correoDestino: acudiente?.correo_acudiente || null,
+            correoDestino,
             estadoEnvio
         };
     } catch (err) {
