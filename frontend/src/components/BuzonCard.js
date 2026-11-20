@@ -125,6 +125,24 @@ function BuzonCard() {
     );
   };
 
+  const esRecibida = (n) => {
+    const tipo = String(n.tipo_notificacion || "").toLowerCase();
+    const estado = obtenerEstado(n).toLowerCase();
+    const texto = `${obtenerAsunto(n)} ${obtenerMensaje(n)}`.toLowerCase();
+
+    return (
+      tipo.includes("aprobada") ||
+      tipo.includes("rechazada") ||
+      tipo.includes("recibid") ||
+      texto.includes("excusa aprobada") ||
+      texto.includes("excusa rechazada") ||
+      texto.includes("justificada") ||
+      estado.includes("recibid") ||
+      estado.includes("leído") ||
+      estado.includes("leido")
+    );
+  };
+
   const obtenerTipo = (n) => {
     if (esAlerta(n)) {
       return "alerta";
@@ -202,6 +220,10 @@ function BuzonCard() {
       });
     }
 
+    if (filtro === "recibidos") {
+      resultado = resultado.filter(esRecibida);
+    }
+
     if (busqueda.trim() !== "") {
       const texto = busqueda.toLowerCase();
       resultado = resultado.filter((n) => {
@@ -232,6 +254,50 @@ function BuzonCard() {
     } catch {
       // Ignorar errores de almacenamiento local
     }
+  };
+
+  const estiloFiltro = (clave, activo, variante = "primary") => {
+    const base = {
+      width: "auto",
+      display: "inline-block",
+      fontWeight: 600,
+      opacity: 1,
+      visibility: "visible",
+    };
+
+    if (variante === "danger") {
+      return {
+        ...base,
+        backgroundColor: activo ? "#dc3545" : "#ffffff",
+        color: activo ? "#ffffff" : "#dc3545",
+        border: "1px solid #dc3545",
+      };
+    }
+
+    if (variante === "success") {
+      return {
+        ...base,
+        backgroundColor: activo ? "#198754" : "#ffffff",
+        color: activo ? "#ffffff" : "#198754",
+        border: "1px solid #198754",
+      };
+    }
+
+    if (variante === "info") {
+      return {
+        ...base,
+        backgroundColor: activo ? "#0dcaf0" : "#ffffff",
+        color: activo ? "#000000" : "#087990",
+        border: "1px solid #0dcaf0",
+      };
+    }
+
+    return {
+      ...base,
+      backgroundColor: activo ? "#0d6efd" : "#ffffff",
+      color: activo ? "#ffffff" : "#0d6efd",
+      border: "1px solid #0d6efd",
+    };
   };
 
   // ==========================================================
@@ -310,6 +376,16 @@ function BuzonCard() {
               <button
                 type="button"
                 className="btn btn-outline-primary"
+                style={{
+                  width: "auto",
+                  display: "inline-block",
+                  backgroundColor: "#ffffff",
+                  color: "#0d6efd",
+                  border: "1px solid #0d6efd",
+                  fontWeight: 600,
+                  opacity: 1,
+                  visibility: "visible",
+                }}
                 onClick={marcarTodasComoLeidas}
               >
                 Marcar todas como leídas
@@ -342,6 +418,7 @@ function BuzonCard() {
                 <option value="alertas">Alertas</option>
                 <option value="mensajes">Mensajes</option>
                 <option value="enviadas">Enviadas</option>
+                <option value="recibidos">Recibidos</option>
               </select>
             </div>
           </div>
@@ -349,9 +426,8 @@ function BuzonCard() {
           <div className="d-flex flex-wrap gap-2 mt-3">
             <button
               type="button"
-              className={`btn ${
-                filtro === "todas" ? "btn-primary" : "btn-outline-primary"
-              }`}
+              className="btn btn-sm"
+              style={estiloFiltro("todas", filtro === "todas", "primary")}
               onClick={() => setFiltro("todas")}
             >
               Todas
@@ -359,9 +435,8 @@ function BuzonCard() {
 
             <button
               type="button"
-              className={`btn ${
-                filtro === "no_leidas" ? "btn-primary" : "btn-outline-primary"
-              }`}
+              className="btn btn-sm"
+              style={estiloFiltro("no_leidas", filtro === "no_leidas", "primary")}
               onClick={() => setFiltro("no_leidas")}
             >
               No leídas
@@ -369,9 +444,8 @@ function BuzonCard() {
 
             <button
               type="button"
-              className={`btn ${
-                filtro === "alertas" ? "btn-danger" : "btn-outline-danger"
-              }`}
+              className="btn btn-sm"
+              style={estiloFiltro("alertas", filtro === "alertas", "danger")}
               onClick={() => setFiltro("alertas")}
             >
               Alertas
@@ -379,9 +453,8 @@ function BuzonCard() {
 
             <button
               type="button"
-              className={`btn ${
-                filtro === "mensajes" ? "btn-primary" : "btn-outline-primary"
-              }`}
+              className="btn btn-sm"
+              style={estiloFiltro("mensajes", filtro === "mensajes", "primary")}
               onClick={() => setFiltro("mensajes")}
             >
               Mensajes
@@ -389,12 +462,20 @@ function BuzonCard() {
 
             <button
               type="button"
-              className={`btn ${
-                filtro === "enviadas" ? "btn-success" : "btn-outline-success"
-              }`}
+              className="btn btn-sm"
+              style={estiloFiltro("enviadas", filtro === "enviadas", "success")}
               onClick={() => setFiltro("enviadas")}
             >
               Enviadas
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-sm"
+              style={estiloFiltro("recibidos", filtro === "recibidos", "info")}
+              onClick={() => setFiltro("recibidos")}
+            >
+              Recibidos
             </button>
           </div>
         </div>
@@ -481,6 +562,16 @@ function BuzonCard() {
                       <button
                         type="button"
                         className="btn btn-outline-primary btn-sm"
+                        style={{
+                          width: "auto",
+                          display: "inline-block",
+                          backgroundColor: "#ffffff",
+                          color: "#0d6efd",
+                          border: "1px solid #0d6efd",
+                          fontWeight: 600,
+                          opacity: 1,
+                          visibility: "visible",
+                        }}
                         onClick={() => navigate("/notificaciones")}
                       >
                         Ver
@@ -505,6 +596,16 @@ function BuzonCard() {
               <button
                 type="button"
                 className="btn btn-outline-secondary"
+                style={{
+                  width: "auto",
+                  display: "inline-block",
+                  backgroundColor: "#ffffff",
+                  color: "#495057",
+                  border: "1px solid #6c757d",
+                  fontWeight: 600,
+                  opacity: 1,
+                  visibility: "visible",
+                }}
                 onClick={cargarNotificaciones}
               >
                 Actualizar
@@ -513,6 +614,16 @@ function BuzonCard() {
               <button
                 type="button"
                 className="btn btn-primary"
+                style={{
+                  width: "auto",
+                  display: "inline-block",
+                  backgroundColor: "#0d6efd",
+                  color: "#ffffff",
+                  border: "1px solid #0d6efd",
+                  fontWeight: 600,
+                  opacity: 1,
+                  visibility: "visible",
+                }}
                 onClick={() => navigate("/notificaciones")}
               >
                 Ver todas

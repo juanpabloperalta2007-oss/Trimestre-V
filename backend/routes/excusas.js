@@ -1,7 +1,135 @@
 import { Router } from "express";
+import multer from "multer";
+import fs from "fs";
+import path from "path";
 import pool from "../db.js";
 
 const router = Router();
+
+// ======================================================
+// CONFIGURACIÓN DE MULTER PARA SOPORTES DE EXCUSAS
+// ======================================================
+const carpetaExcusas = path.resolve("uploads", "excusas");
+fs.mkdirSync(carpetaExcusas, { recursive: true });
+
+const storage = multer.diskStorage({
+    destination: (_req, _file, cb) => {
+        cb(null, carpetaExcusas);
+    },
+    filename: (_req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        const baseLimpio = path
+            .basename(file.originalname, ext)
+            .replace(/[^a-zA-Z0-9_-]/g, "_")
+            .slice(0, 40);
+        cb(null, `${Date.now()}-${baseLimpio}${ext}`);
+    }
+});
+
+const uploadSoporte = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    fileFilter: (_req, file, cb) => {
+        const permitidos = [
+            "application/pdf",
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp"
+        ];
+        if (permitidos.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error("Formato de archivo no permitido. Use PDF, JPG, PNG o WEBP."));
+        }
+    }
+});
+
+// ======================================================
+// RADICAR EXCUSA CON SOPORTE ADJUNTO
+// POST /api/excusas
+// ======================================================
+router.post("/", uploadSoporte.single("soporte"), async (req, res) => {
+    try {
+        const body = req.body || {};
+        const { id_estudiante, motivo, fecha_inasistencia, descripcion, nombre_archivo } = body;
+
+        if (!id_estudiante || !fecha_inasistencia || !descripcion) {
+            if (req.file?.path && fs.existsSync(req.file.path)) {
+                fs.unlinkSync(req.file.path);
+            }
+            return res.status(400).json({
+                error: "Faltan datos requeridos para radicar la excusa."
+            });
+        }
+
+        const nombreSoporte = req.file
+            ? req.file.filename
+            : nombre_archivo
+            ? String(nombre_archivo).trim()
+            : null;
+
+        const detalleObservacion = nombreSoporte
+            ? `[EXCUSA - ${motivo || "General"}]: ${descripcion} [Soporte: ${nombreSoporte}]`
+            : `[EXCUSA - ${motivo || "General"}]: ${descripcion}`;
+
+        const [existente] = await pool.query(
+            `SELECT id_asistencia
+             FROM asistencias
+             WHERE id_estudiante = ? AND DATE(fecha) = DATE(?)
+             LIMIT 1`,
+            [id_estudiante, fecha_inasistencia]
+        );
+
+        if (existente.length > 0) {
+            await pool.query(
+                `UPDATE asistencias
+                 SET estado = 'Excusa Pendiente', observaciones = ?
+                 WHERE id_asistencia = ?`,
+                [detalleObservacion, existente[0].id_asistencia]
+            );
+        } else {
+            const [asigCurso] = await pool.query(
+                `SELECT ac.id_asignatura_curso
+                 FROM asignaturas_cursos ac
+                 INNER JOIN estudiantes_cursos ec ON ac.id_curso = ec.id_curso
+                 WHERE ec.id_estudiante = ?
+                 LIMIT 1`,
+                [id_estudiante]
+            );
+
+            const idAsigCursoValido = asigCurso.length > 0
+                ? asigCurso[0].id_asignatura_curso
+                : null;
+
+            if (!idAsigCursoValido) {
+                if (req.file?.path && fs.existsSync(req.file.path)) {
+                    fs.unlinkSync(req.file.path);
+                }
+                return res.status(400).json({
+                    error: "El estudiante no tiene asignaturas vinculadas a su curso aún."
+                });
+            }
+
+            await pool.query(
+                `INSERT INTO asistencias (fecha, estado, observaciones, id_estudiante, id_asignatura_curso)
+                 VALUES (?, 'Excusa Pendiente', ?, ?, ?)`,
+                [fecha_inasistencia, detalleObservacion, id_estudiante, idAsigCursoValido]
+            );
+        }
+
+        res.status(201).json({
+            mensaje: "Excusa radicada exitosamente y enviada a coordinación.",
+            soporte_archivo: nombreSoporte,
+            soporte_url: req.file ? `/uploads/excusas/${req.file.filename}` : null
+        });
+    } catch (error) {
+        console.error("ERROR AL RADICAR EXCUSA:", error);
+        res.status(500).json({
+            error: error.message || "Error al radicar la excusa."
+        });
+    }
+});
 
 // ======================================================
 // OBTENER EXCUSAS
@@ -51,6 +179,19 @@ router.get("/", async (req, res) => {
                 }
             }
 
+            let soporteArchivo = null;
+            let soporteUrl = null;
+            if (fila.observaciones) {
+                const matchSoporte = fila.observaciones.match(/\[Soporte:\s*(.*?)\]/i);
+                if (matchSoporte && matchSoporte[1]) {
+                    soporteArchivo = matchSoporte[1].trim();
+                    const rutaFisica = path.join(carpetaExcusas, soporteArchivo);
+                    if (fs.existsSync(rutaFisica)) {
+                        soporteUrl = `/uploads/excusas/${encodeURIComponent(soporteArchivo)}`;
+                    }
+                }
+            }
+
             let estado = "Pendiente";
             if (fila.estado === "Excusa Pendiente") {
                 estado = "Pendiente";
@@ -69,7 +210,9 @@ router.get("/", async (req, res) => {
                 fecha: fila.fecha,
                 motivo,
                 estado,
-                observaciones: fila.observaciones || ""
+                observaciones: fila.observaciones || "",
+                soporte_archivo: soporteArchivo,
+                soporte_url: soporteUrl
             };
         });
 
@@ -90,6 +233,8 @@ router.get("/", async (req, res) => {
 router.put("/aprobar/:id", async (req, res) => {
     try {
         const { id } = req.params;
+        const { comentario } = req.body || {};
+        const comentarioLimpio = comentario ? String(comentario).trim() : "";
 
         // 1. Obtener excusa, estudiante y fecha
         const [excusas] = await pool.query(
@@ -117,12 +262,16 @@ router.put("/aprobar/:id", async (req, res) => {
         const excusa = excusas[0];
         const nombreEstudiante = excusa.nombre_estudiante.trim() || "Estudiante";
 
+        const nuevaObservacionAprobada = comentarioLimpio
+            ? `${excusa.observaciones || ""} [Coord. Aprobada: ${comentarioLimpio}]`.trim()
+            : `${excusa.observaciones || ""} [Coord. Aprobada]`.trim();
+
         // 2. Marcar como 'Falla Justificada' el registro principal
         await pool.query(
             `UPDATE asistencias
-             SET estado = 'Falla Justificada'
+             SET estado = 'Falla Justificada', observaciones = ?
              WHERE id_asistencia = ?`,
-            [id]
+            [nuevaObservacionAprobada, id]
         );
 
         // 3. Justificar también otras faltas/tardanzas del mismo estudiante en esa fecha
@@ -163,7 +312,9 @@ router.put("/aprobar/:id", async (req, res) => {
         );
 
         const asunto = `Excusa aprobada - ${nombreEstudiante} (${excusa.fecha_str})`;
-        const mensaje = `Coordinación aprobó la excusa de ${nombreEstudiante} para la fecha ${excusa.fecha_str}. Su asistencia de ese día ha sido marcada como justificada.`;
+        const mensaje = comentarioLimpio
+            ? `Coordinación aprobó la excusa de ${nombreEstudiante} para la fecha ${excusa.fecha_str}. Motivo: ${comentarioLimpio}. Su asistencia de ese día ha sido marcada como justificada.`
+            : `Coordinación aprobó la excusa de ${nombreEstudiante} para la fecha ${excusa.fecha_str}. Su asistencia de ese día ha sido marcada como justificada.`;
 
         for (const doc of docentes) {
             await pool.query(
@@ -178,7 +329,8 @@ router.put("/aprobar/:id", async (req, res) => {
             mensaje: "Excusa aprobada, asistencia justificada y docentes notificados.",
             fecha: excusa.fecha_str,
             id_estudiante: excusa.id_estudiante,
-            docentes_notificados: docentes.length
+            docentes_notificados: docentes.length,
+            comentario: comentarioLimpio || null
         });
     } catch (error) {
         console.error("ERROR AL APROBAR EXCUSA:", error);
@@ -196,19 +348,40 @@ router.put("/aprobar/:id", async (req, res) => {
 router.put("/rechazar/:id", async (req, res) => {
     try {
         const { id } = req.params;
+        const { comentario } = req.body || {};
+        const comentarioLimpio = comentario ? String(comentario).trim() : "";
+
+        const [excusas] = await pool.query(
+            `SELECT observaciones
+             FROM asistencias
+             WHERE id_asistencia = ?`,
+            [id]
+        );
+
+        if (excusas.length === 0) {
+            return res.status(404).json({ error: "Excusa no encontrada." });
+        }
+
+        const obsActual = excusas[0].observaciones || "";
+        const nuevaObsRechazada = comentarioLimpio
+            ? `${obsActual} [Coord. Rechazada: ${comentarioLimpio}]`.trim()
+            : `${obsActual} [Coord. Rechazada]`.trim();
 
         const [result] = await pool.query(
             `UPDATE asistencias
-             SET estado = 'Excusa Rechazada'
+             SET estado = 'Excusa Rechazada', observaciones = ?
              WHERE id_asistencia = ?`,
-            [id]
+            [nuevaObsRechazada, id]
         );
 
         if (result.affectedRows === 0) {
             return res.status(404).json({ error: "Excusa no encontrada." });
         }
 
-        res.json({ mensaje: "Excusa rechazada correctamente." });
+        res.json({
+            mensaje: "Excusa rechazada correctamente.",
+            comentario: comentarioLimpio || null
+        });
     } catch (error) {
         console.error("ERROR AL RECHAZAR EXCUSA:", error);
         res.status(500).json({

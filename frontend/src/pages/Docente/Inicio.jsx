@@ -43,19 +43,35 @@ function Inicio() {
                 <button
                   type="button"
                   className="btn btn-primary d-flex align-items-center gap-2"
+                  style={{
+                    backgroundColor: '#0d6efd',
+                    color: '#ffffff',
+                    border: '1px solid #0d6efd',
+                    fontWeight: 600,
+                    opacity: 1,
+                    visibility: 'visible'
+                  }}
                   onClick={() => navigate('/llamar-lista')}
                 >
                   <i className="bi bi-clipboard-check"></i>
-                  Llamar lista
+                  <span>Llamar lista</span>
                 </button>
 
                 <button
                   type="button"
                   className="btn btn-outline-primary d-flex align-items-center gap-2"
+                  style={{
+                    backgroundColor: '#ffffff',
+                    color: '#0d6efd',
+                    border: '1px solid #0d6efd',
+                    fontWeight: 600,
+                    opacity: 1,
+                    visibility: 'visible'
+                  }}
                   onClick={() => navigate('/consultar-horario')}
                 >
                   <i className="bi bi-journal-bookmark"></i>
-                  Agenda / Horario
+                  <span>Agenda / Horario</span>
                 </button>
               </div>
             </div>

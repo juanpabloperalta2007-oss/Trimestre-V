@@ -7,14 +7,13 @@ import {
 } from "../../services/api";
 
 function LlamarLista() {
-
     const [todasLasAsignaciones, setTodasLasAsignaciones] = useState([]);
     const [cursosDisponibles, setCursosDisponibles] = useState([]);
     const [materiasDisponibles, setMateriasDisponibles] = useState([]);
-    
+
     const [cursoSeleccionado, setCursoSeleccionado] = useState("");
     const [idAsignaturaCurso, setIdAsignaturaCurso] = useState("");
-    
+
     const [fecha, setFecha] = useState(
         new Date().toISOString().split("T")[0]
     );
@@ -32,10 +31,13 @@ function LlamarLista() {
     const cargarMateriasDocente = async () => {
         try {
             const usuarioLogueado = JSON.parse(localStorage.getItem("usuario") || "{}");
-            const idDocente = usuarioLogueado.id_usuario || usuarioLogueado.id || usuarioLogueado.id_persona || 7;
+            const idDocente =
+                usuarioLogueado.id_usuario ||
+                usuarioLogueado.id ||
+                usuarioLogueado.id_persona ||
+                7;
 
-            const res = await obtenerAsignaturasPorCursoDocente(idDocente); 
-            console.log("Materias del docente:", res);
+            const res = await obtenerAsignaturasPorCursoDocente(idDocente);
 
             let listaMaterias = [];
             if (Array.isArray(res)) {
@@ -43,25 +45,23 @@ function LlamarLista() {
             } else if (res && Array.isArray(res.asignaturas)) {
                 listaMaterias = res.asignaturas;
             } else if (res && typeof res === "object") {
-                listaMaterias = Object.values(res).find(val => Array.isArray(val)) || [];
+                listaMaterias = Object.values(res).find((val) => Array.isArray(val)) || [];
             }
 
             setTodasLasAsignaciones(listaMaterias);
 
-            // Extraer cursos únicos para el primer selector
             const cursosUnicos = [];
             const mapCursos = new Map();
-            listaMaterias.forEach(mat => {
+            listaMaterias.forEach((mat) => {
                 if (mat.id_curso && !mapCursos.has(mat.id_curso)) {
                     mapCursos.set(mat.id_curso, true);
-                    cursosUnicos.push({ 
-                        id_curso: mat.id_curso, 
-                        nombre_curso: mat.nombre_curso || `Curso ${mat.id_curso}` 
+                    cursosUnicos.push({
+                        id_curso: mat.id_curso,
+                        nombre_curso: mat.nombre_curso || `Curso ${mat.id_curso}`
                     });
                 }
             });
             setCursosDisponibles(cursosUnicos);
-
         } catch (err) {
             console.error("Error al cargar materias asignadas:", err);
             setTodasLasAsignaciones([]);
@@ -69,17 +69,15 @@ function LlamarLista() {
         }
     };
 
-    // Manejar el cambio del selector de Curso
     const handleCambiarCurso = (e) => {
         const idCurso = e.target.value;
         setCursoSeleccionado(idCurso);
-        setIdAsignaturaCurso(""); // Limpiar materia seleccionada
-        setEstudiantes([]); // Limpiar tabla de estudiantes
+        setIdAsignaturaCurso("");
+        setEstudiantes([]);
         setMensaje("");
         setError("");
 
         if (idCurso) {
-            // Filtrar las materias que pertenecen a este curso
             const materiasFiltradas = todasLasAsignaciones.filter(
                 (mat) => String(mat.id_curso) === String(idCurso)
             );
@@ -92,11 +90,16 @@ function LlamarLista() {
     const convertirEstadoTexto = (estado) => {
         const valor = String(estado || "").toUpperCase().trim();
         switch (valor) {
-            case "P": return "Presente";
-            case "A": return "Ausente";
-            case "T": return "Tardía";
-            case "J": return "Justificado";
-            default: return "";
+            case "P":
+                return "Presente";
+            case "A":
+                return "Ausente";
+            case "T":
+                return "Tardía";
+            case "J":
+                return "Justificado";
+            default:
+                return "";
         }
     };
 
@@ -104,16 +107,21 @@ function LlamarLista() {
         const valor = String(estado || "").toLowerCase().trim();
         switch (valor) {
             case "p":
-            case "presente": return "P";
+            case "presente":
+                return "P";
             case "a":
-            case "ausente": return "A";
+            case "ausente":
+                return "A";
             case "t":
             case "tardia":
             case "tardía":
-            case "tarde": return "T";
+            case "tarde":
+                return "T";
             case "j":
-            case "justificado": return "J";
-            default: return null;
+            case "justificado":
+                return "J";
+            default:
+                return null;
         }
     };
 
@@ -151,7 +159,6 @@ function LlamarLista() {
             const respuesta = await obtenerListaAsistencia(id, fecha);
 
             let lista = [];
-
             if (Array.isArray(respuesta)) {
                 lista = respuesta;
             } else if (Array.isArray(respuesta?.estudiantes)) {
@@ -176,12 +183,11 @@ function LlamarLista() {
             if (listaNormalizada.length === 0) {
                 setMensaje("No se encontraron estudiantes matriculados para esta materia y curso.");
             }
-
-        } catch (error) {
-            console.error("Error cargando lista:", error);
+        } catch (err) {
+            console.error("Error cargando lista:", err);
             const mensajeBackend =
-                error?.response?.data?.mensaje ||
-                error?.response?.data?.error ||
+                err?.response?.data?.mensaje ||
+                err?.response?.data?.error ||
                 "";
 
             setError(mensajeBackend || "No fue posible cargar la lista de estudiantes.");
@@ -191,40 +197,73 @@ function LlamarLista() {
     };
 
     const cambiarEstado = (idEstudiante, nuevoEstado) => {
-        setEstudiantes((listaAnterior) => {
-            return listaAnterior.map((estudiante) => {
-                if (Number(estudiante.id_estudiante) === Number(idEstudiante)) {
-                    return {
-                        ...estudiante,
-                        estado: nuevoEstado
-                    };
-                }
-                return estudiante;
-            });
-        });
+        setEstudiantes((listaAnterior) =>
+            listaAnterior.map((estudiante) =>
+                Number(estudiante.id_estudiante) === Number(idEstudiante)
+                    ? { ...estudiante, estado: nuevoEstado }
+                    : estudiante
+            )
+        );
     };
 
     const cambiarObservacion = (idEstudiante, observacion) => {
-        setEstudiantes((listaAnterior) => {
-            return listaAnterior.map((estudiante) => {
-                if (Number(estudiante.id_estudiante) === Number(idEstudiante)) {
-                    return {
-                        ...estudiante,
-                        observaciones: observacion
-                    };
-                }
-                return estudiante;
-            });
-        });
+        setEstudiantes((listaAnterior) =>
+            listaAnterior.map((estudiante) =>
+                Number(estudiante.id_estudiante) === Number(idEstudiante)
+                    ? { ...estudiante, observaciones: observacion }
+                    : estudiante
+            )
+        );
     };
 
     const marcarTodosPresentes = () => {
-        setEstudiantes((listaAnterior) => {
-            return listaAnterior.map((estudiante) => ({
+        setEstudiantes((listaAnterior) =>
+            listaAnterior.map((estudiante) => ({
                 ...estudiante,
                 estado: "Presente"
-            }));
-        });
+            }))
+        );
+    };
+
+    const estiloBotonEstado = (tipo, activo) => {
+        const base = {
+            fontWeight: 600,
+            opacity: 1,
+            visibility: "visible",
+            display: "inline-block"
+        };
+
+        if (tipo === "Presente") {
+            return {
+                ...base,
+                backgroundColor: activo ? "#198754" : "#ffffff",
+                color: activo ? "#ffffff" : "#198754",
+                border: "1px solid #198754"
+            };
+        }
+        if (tipo === "Ausente") {
+            return {
+                ...base,
+                backgroundColor: activo ? "#dc3545" : "#ffffff",
+                color: activo ? "#ffffff" : "#dc3545",
+                border: "1px solid #dc3545"
+            };
+        }
+        if (tipo === "Tardía") {
+            return {
+                ...base,
+                backgroundColor: activo ? "#ffc107" : "#ffffff",
+                color: "#212529",
+                border: "1px solid #ffc107"
+            };
+        }
+        // Justificado
+        return {
+            ...base,
+            backgroundColor: activo ? "#0dcaf0" : "#ffffff",
+            color: activo ? "#ffffff" : "#087990",
+            border: "1px solid #0dcaf0"
+        };
     };
 
     const guardarLista = async () => {
@@ -245,14 +284,16 @@ function LlamarLista() {
                 return;
             }
 
-            const estudiantesSinEstado = estudiantes.filter((estudiante) => {
-                return !convertirEstadoBD(estudiante.estado);
-            });
+            const estudiantesSinEstado = estudiantes.filter(
+                (estudiante) => !convertirEstadoBD(estudiante.estado)
+            );
 
             if (estudiantesSinEstado.length > 0) {
                 setError("Todos los estudiantes deben tener un estado de asistencia.");
                 return;
             }
+
+            let correosEnviados = 0;
 
             for (const estudiante of estudiantes) {
                 const idEstudiante = Number(estudiante.id_estudiante);
@@ -270,18 +311,24 @@ function LlamarLista() {
                     id_asignatura_curso: idMateriaCurso
                 };
 
-                await guardarAsistencia(datos);
+                const respGuardado = await guardarAsistencia(datos);
+                if (respGuardado?.notificacion?.correoEnviado) {
+                    correosEnviados += 1;
+                }
             }
 
-            setMensaje("La asistencia fue guardada correctamente.");
+            setMensaje(
+                correosEnviados > 0
+                    ? `Asistencia guardada correctamente. Se enviaron ${correosEnviados} notificación(es) por correo.`
+                    : "La asistencia fue guardada correctamente."
+            );
             await cargarLista();
-
-        } catch (error) {
-            console.error("Error guardando asistencia:", error);
+        } catch (err) {
+            console.error("Error guardando asistencia:", err);
             const mensajeBackend =
-                error?.response?.data?.mensaje ||
-                error?.response?.data?.error ||
-                error?.message ||
+                err?.response?.data?.mensaje ||
+                err?.response?.data?.error ||
+                err?.message ||
                 "";
 
             setError(mensajeBackend || "Ocurrió un error al guardar la asistencia.");
@@ -291,19 +338,15 @@ function LlamarLista() {
     };
 
     const total = estudiantes.length;
-
     const presentes = estudiantes.filter(
         (estudiante) => convertirEstadoBD(estudiante.estado) === "P"
     ).length;
-
     const ausentes = estudiantes.filter(
         (estudiante) => convertirEstadoBD(estudiante.estado) === "A"
     ).length;
-
     const tardias = estudiantes.filter(
         (estudiante) => convertirEstadoBD(estudiante.estado) === "T"
     ).length;
-
     const justificados = estudiantes.filter(
         (estudiante) => convertirEstadoBD(estudiante.estado) === "J"
     ).length;
@@ -336,7 +379,7 @@ function LlamarLista() {
                             </select>
                         </div>
 
-                        {/* SELECTOR 2: MATERIA (Depende del Curso) */}
+                        {/* SELECTOR 2: MATERIA */}
                         <div className="col-md-4 mb-3">
                             <label className="form-label fw-bold">
                                 2. Seleccione la Materia
@@ -373,6 +416,7 @@ function LlamarLista() {
                     <button
                         type="button"
                         className="btn btn-success w-100 mt-2"
+                        style={{ backgroundColor: "#198754", color: "#ffffff", fontWeight: 600 }}
                         onClick={cargarLista}
                         disabled={cargando || !idAsignaturaCurso}
                     >
@@ -456,14 +500,22 @@ function LlamarLista() {
 
                     {/* ENCABEZADO */}
                     <div className="d-flex justify-content-between align-items-center mb-3">
-                        <h4 className="mb-0">Lista de estudiantes</h4>
+                        <h4 className="mb-0 text-dark">Lista de estudiantes</h4>
                         <button
                             type="button"
-                            className="btn btn-outline-success"
+                            className="btn btn-success btn-sm"
+                            style={{
+                                backgroundColor: "#198754",
+                                color: "#ffffff",
+                                border: "1px solid #198754",
+                                fontWeight: 600,
+                                opacity: 1,
+                                visibility: "visible"
+                            }}
                             onClick={marcarTodosPresentes}
                             disabled={guardando}
                         >
-                            <i className="bi bi-check-all me-2"></i>
+                            <i className="bi bi-check-all me-1"></i>
                             Todos presentes
                         </button>
                     </div>
@@ -497,66 +549,26 @@ function LlamarLista() {
                                                 <strong>{estudiante.nombre_completo}</strong>
                                             </td>
                                             <td>
-                                                <div className="d-flex flex-wrap gap-1 justify-content-center">
-                                                    <button
-                                                        type="button"
-                                                        className={
-                                                            estudiante.estado === "Presente"
-                                                                ? "btn btn-success btn-sm"
-                                                                : "btn btn-outline-success btn-sm"
+                                                <div className="d-flex flex-wrap gap-2 justify-content-center">
+                                                    {["Presente", "Ausente", "Tardía", "Justificado"].map(
+                                                        (tipo) => {
+                                                            const activo = estudiante.estado === tipo;
+                                                            return (
+                                                                <button
+                                                                    key={tipo}
+                                                                    type="button"
+                                                                    className="btn btn-sm"
+                                                                    style={estiloBotonEstado(tipo, activo)}
+                                                                    onClick={() =>
+                                                                        cambiarEstado(estudiante.id_estudiante, tipo)
+                                                                    }
+                                                                    disabled={guardando}
+                                                                >
+                                                                    {tipo}
+                                                                </button>
+                                                            );
                                                         }
-                                                        onClick={() =>
-                                                            cambiarEstado(estudiante.id_estudiante, "Presente")
-                                                        }
-                                                        disabled={guardando}
-                                                    >
-                                                        Presente
-                                                    </button>
-
-                                                    <button
-                                                        type="button"
-                                                        className={
-                                                            estudiante.estado === "Ausente"
-                                                                ? "btn btn-danger btn-sm"
-                                                                : "btn btn-outline-danger btn-sm"
-                                                        }
-                                                        onClick={() =>
-                                                            cambiarEstado(estudiante.id_estudiante, "Ausente")
-                                                        }
-                                                        disabled={guardando}
-                                                    >
-                                                        Ausente
-                                                    </button>
-
-                                                    <button
-                                                        type="button"
-                                                        className={
-                                                            estudiante.estado === "Tardía"
-                                                                ? "btn btn-warning btn-sm"
-                                                                : "btn btn-outline-warning btn-sm"
-                                                        }
-                                                        onClick={() =>
-                                                            cambiarEstado(estudiante.id_estudiante, "Tardía")
-                                                        }
-                                                        disabled={guardando}
-                                                    >
-                                                        Tardía
-                                                    </button>
-
-                                                    <button
-                                                        type="button"
-                                                        className={
-                                                            estudiante.estado === "Justificado"
-                                                                ? "btn btn-info btn-sm text-white"
-                                                                : "btn btn-outline-info btn-sm"
-                                                        }
-                                                        onClick={() =>
-                                                            cambiarEstado(estudiante.id_estudiante, "Justificado")
-                                                        }
-                                                        disabled={guardando}
-                                                    >
-                                                        Justificado
-                                                    </button>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td>
@@ -585,6 +597,7 @@ function LlamarLista() {
                     <button
                         type="button"
                         className="btn btn-primary w-100 py-2 fw-bold shadow-sm mb-5"
+                        style={{ backgroundColor: "#0d6efd", color: "#ffffff" }}
                         onClick={guardarLista}
                         disabled={guardando}
                     >
@@ -606,4 +619,4 @@ function LlamarLista() {
     );
 }
 
-export default LlamarLista;  
+export default LlamarLista;

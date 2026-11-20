@@ -27,18 +27,25 @@ function InicioAcud() {
   }
 
   const cargarNotificaciones = useCallback(async () => {
-    const idAcudiente = usuario?.id_acudiente || usuario?.id_usuario;
+    const idReferencia = usuario?.id_acudiente || usuario?.id_usuario;
+    const correoUsuario = usuario?.correo || usuario?.login || "";
 
-    if (!idAcudiente) return;
+    if (!idReferencia && !correoUsuario) {
+      setCargando(false);
+      return;
+    }
 
     try {
       setCargando(true);
-      const res = await axios.get(
-        `http://localhost:5000/api/correos_notificaciones/acudiente/${idAcudiente}`
-      );
-      setNotificaciones(res.data);
+      const url = idReferencia
+        ? `http://localhost:5000/api/correos_notificaciones/acudiente/${idReferencia}`
+        : `http://localhost:5000/api/correos_notificaciones?correo=${encodeURIComponent(correoUsuario)}`;
+
+      const res = await axios.get(url);
+      setNotificaciones(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Error al obtener notificaciones:", err);
+      setNotificaciones([]);
     } finally {
       setCargando(false);
     }
@@ -48,16 +55,18 @@ function InicioAcud() {
     cargarNotificaciones();
   }, [cargarNotificaciones]);
 
-  const noLeidasCount = notificaciones.filter(
-    (n) => n.estado_envio === "Pendiente" || n.estado_envio === "No leído"
-  ).length;
+  const noLeidasCount = notificaciones.length;
 
-  const correosFiltrados = notificaciones.filter(
-    (item) =>
-      item.asunto?.toLowerCase().includes(busqueda.toLowerCase()) ||
-      item.remitente_nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
-      item.mensaje?.toLowerCase().includes(busqueda.toLowerCase())
-  );
+  const correosFiltrados = notificaciones.filter((item) => {
+    const q = busqueda.toLowerCase();
+    return (
+      item.asunto?.toLowerCase().includes(q) ||
+      item.remitente_nombre?.toLowerCase().includes(q) ||
+      item.nombre_docente?.toLowerCase().includes(q) ||
+      item.tipo_notificacion?.toLowerCase().includes(q) ||
+      item.mensaje?.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="d-flex flex-column min-vh-100 bg-light w-100">
@@ -137,14 +146,14 @@ function InicioAcud() {
                                 </td>
                               </tr>
                             ) : (
-                              notificaciones.slice(0, 5).map((item) => (
+                              notificaciones.slice(0, 5).map((item, idx) => (
                                 <tr
-                                  key={item.id_correo}
+                                  key={item.id_correo || item.id || idx}
                                   style={{ cursor: "pointer" }}
                                   onClick={() => setCorreoSeleccionado(item)}
                                 >
                                   <td className="fw-bold text-dark">
-                                    {item.remitente_nombre || "Docente"}
+                                    {item.remitente_nombre || item.nombre_docente || "Coordinación"}
                                   </td>
                                   <td className="text-muted small">
                                     {item.fecha_envio
@@ -153,7 +162,7 @@ function InicioAcud() {
                                   </td>
                                   <td>
                                     <span className="badge bg-light text-dark border px-2 py-1 small">
-                                      {item.rol || "Profesor"}
+                                      {item.rol || "Docente"}
                                     </span>
                                   </td>
                                 </tr>
@@ -221,16 +230,16 @@ function InicioAcud() {
                             </td>
                           </tr>
                         ) : (
-                          correosFiltrados.map((item) => (
+                          correosFiltrados.map((item, idx) => (
                             <tr
-                              key={item.id_correo}
+                              key={item.id_correo || item.id || idx}
                               style={{ cursor: "pointer" }}
                               onClick={() => setCorreoSeleccionado(item)}
                             >
                               <td className="fw-bold text-dark">{item.asunto || "Sin asunto"}</td>
                               <td>
-                                <div>{item.remitente_nombre || "Docente"}</div>
-                                <small className="text-muted">{item.rol || "Profesor"}</small>
+                                <div>{item.remitente_nombre || item.nombre_docente || "Coordinación"}</div>
+                                <small className="text-muted">{item.rol || "Docente"}</small>
                               </td>
                               <td>
                                 <span className="badge bg-secondary">
@@ -280,13 +289,19 @@ function InicioAcud() {
                 <div className="d-flex justify-content-between mb-3 border-bottom pb-2">
                   <div>
                     <small className="text-muted d-block">De:</small>
-                    <strong>{correoSeleccionado.remitente_nombre}</strong> (
-                    {correoSeleccionado.rol || "Profesor"})
+                    <strong>
+                      {correoSeleccionado.remitente_nombre ||
+                        correoSeleccionado.nombre_docente ||
+                        "Coordinación"}
+                    </strong>{" "}
+                    ({correoSeleccionado.rol || "Docente"})
                   </div>
                   <div className="text-end">
                     <small className="text-muted d-block">Fecha:</small>
                     <small className="fw-bold">
-                      {new Date(correoSeleccionado.fecha_envio).toLocaleDateString("es-ES")}
+                      {correoSeleccionado.fecha_envio
+                        ? new Date(correoSeleccionado.fecha_envio).toLocaleDateString("es-ES")
+                        : "Sin fecha"}
                     </small>
                   </div>
                 </div>
