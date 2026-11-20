@@ -1,5 +1,6 @@
 drop database GAE2;
 create database GAE2;
+
 use GAE2;
 show tables;
 -- 1. AUTENTICACIÓN Y TABLA BASE DE PERSONAS
@@ -111,11 +112,11 @@ CREATE TABLE asignaturas_cursos (
     id_asignatura_curso INT AUTO_INCREMENT PRIMARY KEY,
     id_asignatura INT NOT NULL,
     id_curso INT NOT NULL,
-    id_docente INT NOT NULL,
+    id_docente INT NULL,
     UNIQUE(id_asignatura, id_curso),
     FOREIGN KEY (id_asignatura) REFERENCES asignaturas(id_asignatura) ON DELETE CASCADE,
     FOREIGN KEY (id_curso) REFERENCES cursos(id_curso) ON DELETE CASCADE,
-    FOREIGN KEY (id_docente) REFERENCES docentes(id_docente) ON DELETE CASCADE
+    FOREIGN KEY (id_docente) REFERENCES docentes(id_docente) ON DELETE SET NULL
 );
 
 -- Asignación de Coordinador a Cursos (tomado de tu script original)
@@ -164,3 +165,5 @@ CREATE TABLE correos_notificaciones (
     FOREIGN KEY (id_acudiente) REFERENCES acudientes(id_acudiente) ON DELETE CASCADE,
     FOREIGN KEY (id_estudiante) REFERENCES estudiantes(id_estudiante) ON DELETE SET NULL
 );
+
+ALTER TABLE asignaturas_cursos ADD UNIQUE KEY unique_curso_asignatura (id_curso, id_asignatura);
